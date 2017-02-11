@@ -28,8 +28,39 @@ TWIG = function(){
 
     var RX_WHITESPACE = /^[ \u00a0\n\r\t\f\u000b\u200b\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\uFEFF]+/;
 
-    var RX_OPERATOR;
+    var RX_OPERATOR;            // populated by `init()`
 
+    /* -----[ Token types ]----- */
+
+    // var TOK_TEXT     = 1;
+    // var TOK_EXPR_BEG = 2;
+    // var TOK_STAT_BEG = 3;
+    // var TOK_EXPR_END = 4;
+    // var TOK_STAT_END = 5;
+    // var TOK_OPERATOR = 6;
+    // var TOK_NUMBER   = 7;
+    // var TOK_PUNC     = 8;
+    // var TOK_STR      = 9;
+    // var TOK_INT_STR  = 10;
+    // var TOK_SYMBOL   = 11;
+    // var TOK_COMMENT  = 12;
+
+    var TOK_TEXT     = "text";
+    var TOK_EXPR_BEG = "expr_beg";
+    var TOK_STAT_BEG = "stat_beg";
+    var TOK_EXPR_END = "expr_end";
+    var TOK_STAT_END = "stat_end";
+    var TOK_OPERATOR = "operator";
+    var TOK_NUMBER   = "number";
+    var TOK_PUNC     = "punc";
+    var TOK_STR      = "string";
+    var TOK_INT_STR  = "interpolated_string";
+    var TOK_SYMBOL   = "symbol";
+    var TOK_COMMENT  = "comment";
+
+    // XXX: we'll export more during development, but should remove
+    // what isn't essential.  For instance, there's no need for
+    // someone else to mess with our Lexer.
     return {
         parse: parse,
         Lexer: Lexer,
@@ -41,6 +72,10 @@ TWIG = function(){
             return b.length - a.length;
         }).map(quote_regexp).join("|") + ")";
         RX_OPERATOR = new RegExp(rx);
+    }
+
+    function quote_regexp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
 
     function make_operators(a) {
@@ -55,25 +90,33 @@ TWIG = function(){
         return precedence;
     }
 
-    function quote_regexp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    }
-
     function parse(input) {
 
     }
 
     function Lexer(input) {
         input = InputStream(input);
-        var current;
+        var peeked_token;
         var twig_mode = false;
-        var next_tokens = [];
+        var current;
         return {
             next  : next,
             peek  : peek,
             eof   : eof,
             croak : croak
         };
+
+        function start_token() {
+            current = { loc: input.pos() };
+        }
+
+        function token(type, value) {
+            current.type = type;
+            if (arguments.length > 1) {
+                current.value = value;
+            }
+            return current;
+        }
 
         function is_digit(ch) {
             return /\d/.test(ch);
@@ -114,22 +157,23 @@ TWIG = function(){
                 } else if (ch == "\\") {
                     escaped = true;
                 } else if (ch == end) {
-                    break;
+                    return str;
                 } else {
                     str += ch;
                 }
             }
-            return str;
+            croak("Unfinished string");
         }
 
         function skip_comment() {
-            var m = input.skip(/^.*(-?\#\})/);
+            var m = input.skip(/^(.*?)(-?\#\})/);
             if (!m) {
                 croak("Unfinished comment");
             }
-            if (m[1].charAt(0) == "-") {
+            if (m[2].charAt(0) == "-") {
                 skip_whitespace();
             }
+            return m[1];
         }
 
         function read_expr_token() {
@@ -142,63 +186,66 @@ TWIG = function(){
                     skip_whitespace();
                     tmp = tmp.substr(1);
                 }
-                return { type: tmp == "}}" ? "/expr" : "/stat" };
+                return token(tmp == "}}" ? TOK_EXPR_END : TOK_STAT_END);
             }
             ch = input.peek();
             if (ch == null) {
                 return null;
             }
             if ((m = input.skip(RX_OPERATOR))) {
-                return { type: "op", value: m[0] };
+                return token(TOK_OPERATOR, m[0]);
             }
             if ((m = input.skip(/^0x([0-9a-fA-F]+)/))) {
-                return { type: "num", value: parseInt(m[1], 16) };
+                return token(TOK_NUMBER, parseInt(m[1], 16));
             }
             if ((m = input.skip(/^\d*(?:\.\d+)?/))) {
-                return { type: "num", value: parseFloat(m[0]) };
+                return token(TOK_NUMBER, parseFloat(m[0]));
             }
             if (is_punc(ch)) {
-                return { type: "punc", value: input.next() };
+                return token(TOK_PUNC, input.next());
             }
             if (ch == "'") {
-                return { type: "str", value: read_escaped("'") };
+                return token(TOK_STR, read_escaped("'"));
             }
             if (ch == '"') {
-                return { type: "$tr", value: read_escaped('"') };
+                return token(TOK_INT_STR, read_escaped('"'));
             }
             if (is_id_start(ch)) {
-                return { type: "sym", value: read_while(is_id_char) };
+                return token(TOK_SYMBOL, read_while(is_id_char));
             }
+            croak("Unexpected input in expression");
         }
 
         function read_token() {
-            if (next_tokens.length) {
-                return next_tokens.shift();
-            }
             if (input.eof()) {
                 return null;
             }
+            start_token();
             if (twig_mode) {
                 skip_whitespace();
                 return read_expr_token();
             }
-            var m = input.skip(/^(.*?)(\{\{-?|\{\%-?|\{\#-?|$)/);
-            var text = m[1];
-            var trim = /-$/.test(m[2]);
-            var tag = trim ? m[2].substr(0, 2) : m[2];
-            if (trim) {
+            var m;
+            if ((m = input.skip(/^(\{\{|\{\%|\{#)-?/))) {
+                var tag = m[1];
+                if (tag == "{{") {
+                    twig_mode = true;
+                    return token(TOK_EXPR_BEG);
+                } else if (tag == "{%") {
+                    twig_mode = true;
+                    return token(TOK_STAT_BEG);
+                } else if (tag == "{#") {
+                    return token(TOK_COMMENT, skip_comment());
+                }
+                croak("Attention: there is a hole in the time/space continuum");
+            }
+            m = input.skip(/^[^]*?(?=\{\{|\{\%|\{\#|$)/);
+            var text = m[0];
+            if (input.seeing(/^..-/)) {
+                // the following tag wants trimming
                 text = text.replace(/\s+$/, "");
             }
-            if (tag == "{{") {
-                twig_mode = true;
-                next_tokens.push({ type: "expr" });
-            } else if (tag == "{%") {
-                twig_mode = true;
-                next_tokens.push({ type: "stat" });
-            } else if (tag == "{#") {
-                skip_comment();
-            }
-            return text ? { type: "text", value: text } : read_token();
+            return text ? token(TOK_TEXT, text) : read_token();
         }
 
         function croak(msg) {
@@ -206,13 +253,13 @@ TWIG = function(){
         }
 
         function next() {
-            var tok = current;
-            current = null;
+            var tok = peeked_token;
+            peeked_token = null;
             return tok || read_token();
         }
 
         function peek() {
-            return current || (current = read_token());
+            return peeked_token || (peeked_token = read_token());
         }
 
         function eof() {
@@ -220,14 +267,20 @@ TWIG = function(){
         }
     }
 
-    function InputStream(input) {
-        var pos = 0, line = 1, col = 0;
+    function InputStream(input, pos, line, col) {
+        pos = pos || 0;
+        line = line || 1;
+        col = col || 0;
         return {
-            next  : next,
-            peek  : peek,
-            eof   : eof,
-            skip  : skip,
-            croak : croak
+            next   : next,
+            peek   : peek,
+            eof    : eof,
+            skip   : skip,
+            croak  : croak,
+            seeing : seeing,
+            pos    : function() {
+                return { pos: pos, line: line, col: col };
+            }
         };
         function next() {
             var ch = input.charAt(pos++);
@@ -240,11 +293,15 @@ TWIG = function(){
         function eof() {
             return peek() == "";
         }
+        function seeing(rx) {
+            var str = input.substr(pos);
+            return rx.exec(str);
+        }
         function skip(rx) {
             var str = input.substr(pos);
             var m = rx.exec(str);
             if (m && m[0].length) {
-                pos += m[0].length;
+                for (var i = m[0].length; --i >= 0;) next();
                 return m;
             }
         }
@@ -259,8 +316,8 @@ TWIG = function(){
 console.time("LEXER");
 var t = TWIG();
 t.init();
-var l = t.Lexer("foo {# bar #}     {{ '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\
-{% set X = { foo: 1, bar: 2 } %}\
+var l = t.Lexer("foo {# bar #}     {{- '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\n\
+ {% set X = { foo: 1, \"bar\": 2 } %}\
 {{foo}}{{bar}}\
 ");
 while (!l.eof()) {

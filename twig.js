@@ -33,33 +33,33 @@ TWIG = function(){
 
     /* -----[ Token types ]----- */
 
-    var NODE_TEXT     = "text";
-    var NODE_EXPR_BEG = "expr_beg";
-    var NODE_STAT_BEG = "stat_beg";
-    var NODE_EXPR_END = "expr_end";
-    var NODE_STAT_END = "stat_end";
-    var NODE_OPERATOR = "operator";
-    var NODE_NUMBER   = "number";
-    var NODE_PUNC     = "punc";
-    var NODE_STR      = "string";
-    var NODE_INT_STR  = "interpolated_string";
-    var NODE_SYMBOL   = "symbol";
-    var NODE_COMMENT  = "comment";
+    var NODE_TEXT         = "text";
+    var NODE_EXPR_BEG     = "expr_beg";
+    var NODE_STAT_BEG     = "stat_beg";
+    var NODE_EXPR_END     = "expr_end";
+    var NODE_STAT_END     = "stat_end";
+    var NODE_OPERATOR     = "operator";
+    var NODE_NUMBER       = "number";
+    var NODE_PUNC         = "punc";
+    var NODE_STR          = "string";
+    var NODE_INT_STR      = "interpolated_string";
+    var NODE_SYMBOL       = "symbol";
+    var NODE_COMMENT      = "comment";
 
     /* -----[ AST node types ]----- */
 
-    var NODE_TEMPLATE = "template";
-    var NODE_BOOLEAN = "boolean";
-    var NODE_ASSIGN = "assign";
-    var NODE_BINARY = "binary";
-    var NODE_UNARY = "unary";
-    var NODE_CONDITIONAL = "conditional";
-    var NODE_CALL = "call";
-    var NODE_FILTER = "filter";
-    var NODE_ARRAY = "array";
-    var NODE_HASH = "hash";
-    var NODE_HASH_ENTRY = "hash_entry";
-    var NODE_INDEX = "index";
+    var NODE_TWIG         = "twig";
+    var NODE_BOOLEAN      = "boolean";
+    var NODE_ASSIGN       = "assign";
+    var NODE_BINARY       = "binary";
+    var NODE_UNARY        = "unary";
+    var NODE_CONDITIONAL  = "conditional";
+    var NODE_CALL         = "call";
+    var NODE_FILTER       = "filter";
+    var NODE_ARRAY        = "array";
+    var NODE_HASH         = "hash";
+    var NODE_HASH_ENTRY   = "hash_entry";
+    var NODE_INDEX        = "index";
 
     // XXX: we'll export more during development, but should remove
     // what isn't essential.  For instance, there's no need for
@@ -103,7 +103,7 @@ TWIG = function(){
                 ast.body.push(parse_next());
             }
             return ast;
-        })({ type: NODE_TEMPLATE, body: [] });
+        })({ type: NODE_TWIG, body: [] });
 
         function peek() {
             var tok;
@@ -297,7 +297,7 @@ TWIG = function(){
         }
 
         function parse_symbol() {
-            var tok = input.next();
+            var tok = next();
             if (tok.value == "true") {
                 return { type: NODE_BOOLEAN, value: true };
             }

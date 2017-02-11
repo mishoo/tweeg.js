@@ -59,6 +59,7 @@ TWIG = function(){
     var NODE_ARRAY = "array";
     var NODE_HASH = "hash";
     var NODE_HASH_ENTRY = "hash_entry";
+    var NODE_INDEX = "index";
 
     // XXX: we'll export more during development, but should remove
     // what isn't essential.  For instance, there's no need for
@@ -166,7 +167,7 @@ TWIG = function(){
             } else {
                 croak("Unexpected token in expression");
             }
-            return maybe_call(maybe_filter(atom));
+            return maybe_call(maybe_filter(maybe_index(atom)));
         }
 
         function parse_array() {
@@ -244,6 +245,31 @@ TWIG = function(){
                     expr: expr,
                     name: sym,
                     args: args
+                };
+            }
+            return expr;
+        }
+
+        function maybe_index(expr) {
+            var prop;
+            if (seeing(NODE_PUNC, "[")) {
+                next();
+                prop = parse_expression();
+                skip(NODE_PUNC, "]");
+                return {
+                    type: NODE_INDEX,
+                    expr: expr,
+                    prop: prop
+                };
+            }
+            if (seeing(NODE_PUNC, ".")) {
+                next();
+                prop = skip(NODE_SYMBOL);
+                prop.type = NODE_STR;
+                return {
+                    type: NODE_INDEX,
+                    expr: expr,
+                    prop: prop
                 };
             }
             return expr;
@@ -529,7 +555,7 @@ TWIG = function(){
 
 console.time("PARSER");
 var t = TWIG().init();
-var ast = t.parse("{{ { foo: 1, (bar): [2, 3] } }}");
+var ast = t.parse("{{ a + b.mak }}");
 console.timeEnd("PARSER");
 console.log(JSON.stringify(ast, null, 2));
 

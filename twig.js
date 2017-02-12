@@ -58,25 +58,21 @@ TWIG = function(){
     var NODE_FILTER       = "filter";
     var NODE_ARRAY        = "array";
     var NODE_HASH         = "hash";
-    var NODE_HASH_ENTRY   = "hash_entry";
     var NODE_INDEX        = "index";
 
-    // XXX: we'll export more during development, but should remove
-    // what isn't essential.  For instance, there's no need for
-    // someone else to mess with our Lexer.
-    var self = {
+    var exports = {
         parse: parse,
         Lexer: Lexer,
         init: init
     };
-    return self;
+    return exports;
 
     function init() {
         var rx = "^(?:" + ALL_OPERATORS.sort(function(a, b){
             return b.length - a.length;
         }).map(quote_regexp).join("|") + ")";
         RX_OPERATOR = new RegExp(rx);
-        return self;
+        return exports;
     }
 
     function quote_regexp(string) {
@@ -141,24 +137,24 @@ TWIG = function(){
 
         function parse_atom() {
             var atom, tok;
-            if (seeing(NODE_PUNC, "(")) {
+            if (looking_at(NODE_PUNC, "(")) {
                 next();
                 atom = parse_expression();
                 skip(NODE_PUNC, ")");
             }
-            else if (seeing(NODE_PUNC, "{")) {
+            else if (looking_at(NODE_PUNC, "{")) {
                 atom = parse_hash();
             }
-            else if (seeing(NODE_PUNC, "[")) {
+            else if (looking_at(NODE_PUNC, "[")) {
                 atom = parse_array();
             }
-            else if (seeing(NODE_SYMBOL)) {
+            else if (looking_at(NODE_SYMBOL)) {
                 atom = parse_symbol();
             }
-            else if (seeing(NODE_NUMBER) || seeing(NODE_STR)) {
+            else if (looking_at(NODE_NUMBER) || looking_at(NODE_STR)) {
                 atom = next();
             }
-            else if ((tok = seeing(NODE_OPERATOR)) && UNARY_OPERATORS[tok.value]) {
+            else if ((tok = looking_at(NODE_OPERATOR)) && UNARY_OPERATORS[tok.value]) {
                 atom = {
                     type: NODE_UNARY,
                     operator: next().value,
@@ -167,7 +163,7 @@ TWIG = function(){
             } else {
                 croak("Unexpected token in expression");
             }
-            return maybe_call(maybe_filter(maybe_index(atom)));
+            return maybe_filter(maybe_call(maybe_index(atom)));
         }
 
         function parse_array() {
@@ -186,7 +182,7 @@ TWIG = function(){
 
         function parse_hash_entry() {
             var key;
-            if (seeing(NODE_SYMBOL)) {
+            if (looking_at(NODE_SYMBOL)) {
                 key = next();
                 key.type = NODE_STR;
             } else {
@@ -200,7 +196,7 @@ TWIG = function(){
         }
 
         function maybe_binary(left, my_prec) {
-            var tok = seeing(NODE_OPERATOR);
+            var tok = looking_at(NODE_OPERATOR);
             if (tok && BINARY_OPERATORS[tok.value]) {
                 var his_prec = BINARY_OPERATORS[tok.value];
                 if (his_prec > my_prec) {
@@ -217,7 +213,7 @@ TWIG = function(){
         }
 
         function maybe_ternary(expr) {
-            if (seeing(NODE_OPERATOR, "?")) {
+            if (looking_at(NODE_OPERATOR, "?")) {
                 next();
                 expr = {
                     type: NODE_CONDITIONAL,
@@ -230,14 +226,14 @@ TWIG = function(){
         }
 
         function maybe_call(expr) {
-            return seeing(NODE_PUNC, "(") ? parse_call(expr) : expr;
+            return looking_at(NODE_PUNC, "(") ? parse_call(expr) : expr;
         }
 
         function maybe_filter(expr) {
-            if (seeing(NODE_OPERATOR, "|")) {
+            if (looking_at(NODE_OPERATOR, "|")) {
                 next();
                 var sym = skip(NODE_SYMBOL);
-                var args = seeing(NODE_PUNC, "(")
+                var args = looking_at(NODE_PUNC, "(")
                     ? delimited("(", ")", ",", parse_expression)
                     : [];
                 expr = {
@@ -252,7 +248,7 @@ TWIG = function(){
 
         function maybe_index(expr) {
             var prop;
-            if (seeing(NODE_PUNC, "[")) {
+            if (looking_at(NODE_PUNC, "[")) {
                 next();
                 prop = parse_expression();
                 skip(NODE_PUNC, "]");
@@ -262,7 +258,7 @@ TWIG = function(){
                     prop: prop
                 };
             }
-            if (seeing(NODE_PUNC, ".")) {
+            if (looking_at(NODE_PUNC, ".")) {
                 next();
                 prop = skip(NODE_SYMBOL);
                 prop.type = NODE_STR;
@@ -287,9 +283,9 @@ TWIG = function(){
             var a = [], first = true;
             skip(NODE_PUNC, start);
             while (!input.eof()) {
-                if (seeing(NODE_PUNC, stop)) break;
+                if (looking_at(NODE_PUNC, stop)) break;
                 if (first) first = false; else skip(NODE_PUNC, separator);
-                if (seeing(NODE_PUNC, stop)) break;
+                if (looking_at(NODE_PUNC, stop)) break;
                 a.push(parser());
             }
             skip(NODE_PUNC, stop);
@@ -311,7 +307,7 @@ TWIG = function(){
             input.croak(msg);
         }
 
-        function seeing(type, value) {
+        function looking_at(type, value) {
             var tok = peek();
             if (arguments.length == 1) {
                 return tok && tok.type == type ? tok : null;
@@ -321,12 +317,12 @@ TWIG = function(){
 
         function skip(type, value) {
             var seen = arguments.length == 1
-                ? seeing(type)
-                : seeing(type, value);
+                ? looking_at(type)
+                : looking_at(type, value);
             if (seen) {
                 return next();
             } else {
-                croak("Expecting " + type + ", got: " + dump(peek()));
+                return croak("Expecting " + type + ", got: " + dump(peek()));
             }
         }
 
@@ -418,7 +414,7 @@ TWIG = function(){
         }
 
         function read_expr_token() {
-            var ch, m;
+            var m, ch = input.peek();
             skip_whitespace();
             if ((m = input.skip(/^(?:-?\%\}|-?\}\})/))) {
                 twig_mode = false;
@@ -429,7 +425,6 @@ TWIG = function(){
                 }
                 return token(tmp == "}}" ? NODE_EXPR_END : NODE_STAT_END);
             }
-            ch = input.peek();
             if (ch == null) {
                 return null;
             }
@@ -454,7 +449,7 @@ TWIG = function(){
             if (is_id_start(ch)) {
                 return token(NODE_SYMBOL, read_while(is_id_char));
             }
-            croak("Unexpected input in expression");
+            return croak("Unexpected input in expression");
         }
 
         function read_token() {
@@ -466,23 +461,45 @@ TWIG = function(){
                 skip_whitespace();
                 return read_expr_token();
             }
-            var m;
-            if ((m = input.skip(/^(\{\{|\{\%|\{#)-?/))) {
+            var m, text;
+            if ((m = input.skip(/^(\{\{|\{\%|\{#)-?\s*/))) {
                 var tag = m[1];
                 if (tag == "{{") {
                     twig_mode = true;
                     return token(NODE_EXPR_BEG);
                 } else if (tag == "{%") {
-                    twig_mode = true;
-                    return token(NODE_STAT_BEG);
+                    // handle verbatim blocks here, as if we parse
+                    // them normally it'll be harder to reconstruct
+                    // the original text
+                    if ((m = input.skip(/^verbatim\s*(-?)\%\}/))) {
+                        if (m[1]) {
+                            skip_whitespace();
+                        }
+                        m = input.skip(/^([^]*?)\{\%(-?)\s*endverbatim\s*(-?)\%\}/);
+                        if (!m) {
+                            croak("Unfinished verbatim block");
+                        }
+                        text = m[1];
+                        if (m[2]) {
+                            text = text.replace(/\s+$/, "");
+                        }
+                        if (m[3]) {
+                            skip_whitespace();
+                        }
+                        return text ? token(NODE_TEXT, text) : read_token();
+                    } else {
+                        twig_mode = true;
+                        return token(NODE_STAT_BEG);
+                    }
                 } else if (tag == "{#") {
                     return token(NODE_COMMENT, skip_comment());
+                } else {
+                    return croak("Attention: there is a hole in the time/space continuum");
                 }
-                croak("Attention: there is a hole in the time/space continuum");
             }
             m = input.skip(/^[^]*?(?=\{\{|\{\%|\{\#|$)/);
-            var text = m[0];
-            if (input.seeing(/^..-/)) {
+            text = m[0];
+            if (input.looking_at(/^..-/)) {
                 // the following tag wants trimming
                 text = text.replace(/\s+$/, "");
             }
@@ -513,13 +530,13 @@ TWIG = function(){
         line = line || 1;
         col = col || 0;
         return {
-            next   : next,
-            peek   : peek,
-            eof    : eof,
-            skip   : skip,
-            croak  : croak,
-            seeing : seeing,
-            pos    : function() {
+            next        : next,
+            peek        : peek,
+            eof         : eof,
+            skip        : skip,
+            croak       : croak,
+            looking_at  : looking_at,
+            pos         : function() {
                 return { pos: pos, line: line, col: col };
             }
         };
@@ -534,13 +551,11 @@ TWIG = function(){
         function eof() {
             return peek() == "";
         }
-        function seeing(rx) {
-            var str = input.substr(pos);
-            return rx.exec(str);
+        function looking_at(rx) {
+            return rx.exec(input.substr(pos));
         }
         function skip(rx) {
-            var str = input.substr(pos);
-            var m = rx.exec(str);
+            var m = looking_at(rx);
             if (m && m[0].length) {
                 for (var i = m[0].length; --i >= 0;) next();
                 return m;
@@ -553,21 +568,28 @@ TWIG = function(){
 
 };
 
-console.time("PARSER");
-var t = TWIG().init();
-var ast = t.parse("{{ a + b.mak }}");
-console.timeEnd("PARSER");
-console.log(JSON.stringify(ast, null, 2));
+// var t = TWIG().init();
+// console.time("PARSER");
+// var ast = t.parse("{{ a + b.mak }}");
+// console.timeEnd("PARSER");
+// console.log(JSON.stringify(ast, null, 2));
 
 
-// console.time("LEXER");
-// var t = TWIG();
-// t.init();
+console.time("LEXER");
+var t = TWIG();
+t.init();
 // var l = t.Lexer("foo {# bar #}     {{- '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\n\
 //  {% set X = { foo: 1, \"bar\": 2 } %}\
 // {{foo}}{{bar}}\
 // ");
-// console.timeEnd("LEXER");
-// while (!l.eof()) {
-//     console.log(l.next());
-// }
+var l = t.Lexer("foo    \n\
+{%- verbatim -%}\n\
+  {{ ckt }}\n\
+{%- endverbatim -%}\n\
+  {{wakabar}}");
+var a = [];
+while (!l.eof()) {
+    a.push(l.next());
+}
+console.timeEnd("LEXER");
+console.log(a);

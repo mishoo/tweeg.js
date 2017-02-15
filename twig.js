@@ -48,7 +48,7 @@ TWIG = function(){
 
     /* -----[ AST node types ]----- */
 
-    var NODE_TWIG         = "twig";
+    var NODE_PROG         = "prog";
     var NODE_BOOLEAN      = "boolean";
     var NODE_ASSIGN       = "assign";
     var NODE_BINARY       = "binary";
@@ -94,12 +94,11 @@ TWIG = function(){
     function parse(input) {
         input = Lexer(input);
 
-        return (function(ast){
-            while (!input.eof()) {
-                ast.body.push(parse_next());
-            }
-            return ast;
-        })({ type: NODE_TWIG, body: [] });
+        var CORE_TAGS = {
+            "if": parse_tag_if
+        };
+
+        return parse_until(function(){ return false });
 
         function peek() {
             var tok;
@@ -125,7 +124,13 @@ TWIG = function(){
                 return expr;
             }
             if (tok.type == NODE_STAT_BEG) {
-                croak("Not implemented");
+                next();
+                var tag = skip(NODE_SYMBOL).value;
+                var parser = CORE_TAGS[tag];
+                var node = parser();
+                node.type = "stat";
+                node.tag = tag;
+                return node;
             }
         }
 
@@ -166,6 +171,25 @@ TWIG = function(){
             return maybe_filter(maybe_call(maybe_index(atom)));
         }
 
+        function parse_call(func) {
+            return {
+                type: NODE_CALL,
+                func: func,
+                args: delimited("(", ")", ",", parse_expression)
+            };
+        }
+
+        function parse_symbol() {
+            var tok = next();
+            if (tok.value == "true") {
+                return { type: NODE_BOOLEAN, value: true };
+            }
+            if (tok.value == "false") {
+                return { type: NODE_BOOLEAN, value: false };
+            }
+            return tok;
+        }
+
         function parse_array() {
             return {
                 type: NODE_ARRAY,
@@ -194,6 +218,50 @@ TWIG = function(){
                 value: parse_expression()
             };
         }
+
+        function parse_until(pred) {
+            var body = [];
+            while (!input.eof() && !pred()) {
+                body.push(parse_next());
+            }
+            return { type: NODE_PROG, body: body };
+        }
+
+        function end_body_predicate(rx, skip_end) {
+            return function() {
+                return input.ahead(2, function(tokens, consume) {
+                    if (is(tokens[0], NODE_STAT_BEG)) {
+                        var tag = is(tokens[1], NODE_SYMBOL);
+                        if (tag && rx.test(tag.value)) {
+                            consume(skip_end ? 2 : 1);
+                            if (skip_end) {
+                                skip(NODE_STAT_END);
+                            }
+                            return true;
+                        }
+                    }
+                });
+            };
+        }
+
+        /* -----[ core tag parsers ]----- */
+
+        function parse_tag_if() {
+            var node = {};
+            node["cond"] = parse_expression();
+            skip(NODE_STAT_END);
+            node["then"] = parse_until(end_body_predicate(/^(?:elseif|else|endif)$/));
+            var tag = skip(NODE_SYMBOL).value;
+            skip(NODE_STAT_END);
+            if (tag == "else") {
+                node.else = parse_until(end_body_predicate(/^endif$/, true));
+            } else if (tag == "elseif") {
+                node.else = parse_tag_if();
+            }
+            return node;
+        }
+
+        /* -----[ the "maybe" functions ]----- */
 
         function maybe_binary(left, my_prec) {
             var tok = looking_at(NODE_OPERATOR);
@@ -271,13 +339,7 @@ TWIG = function(){
             return expr;
         }
 
-        function parse_call(func) {
-            return {
-                type: NODE_CALL,
-                func: func,
-                args: delimited("(", ")", ",", parse_expression)
-            };
-        }
+        /* -----[ other parse utilities ]----- */
 
         function delimited(start, stop, separator, parser) {
             var a = [], first = true;
@@ -292,27 +354,17 @@ TWIG = function(){
             return a;
         }
 
-        function parse_symbol() {
-            var tok = next();
-            if (tok.value == "true") {
-                return { type: NODE_BOOLEAN, value: true };
-            }
-            if (tok.value == "false") {
-                return { type: NODE_BOOLEAN, value: false };
-            }
-            return tok;
-        }
-
         function croak(msg) {
             input.croak(msg);
         }
 
+        function is(tok, type, value) {
+            return tok && tok.type == type
+                && (value == null || tok.value === value) ? tok : null;
+        }
+
         function looking_at(type, value) {
-            var tok = peek();
-            if (arguments.length == 1) {
-                return tok && tok.type == type ? tok : null;
-            }
-            return tok && tok.type == type && tok.value === value ? tok : null;
+            return is(peek(), type, value);
         }
 
         function skip(type, value) {
@@ -333,12 +385,13 @@ TWIG = function(){
 
     function Lexer(input) {
         input = InputStream(input);
-        var peeked_token;
+        var peeked = [];
         var twig_mode = false;
         var current;
         return {
             next  : next,
             peek  : peek,
+            ahead : ahead,
             eof   : eof,
             croak : croak
         };
@@ -511,13 +564,24 @@ TWIG = function(){
         }
 
         function next() {
-            var tok = peeked_token;
-            peeked_token = null;
-            return tok || read_token();
+            return peeked.length ? peeked.shift() : read_token();
         }
 
         function peek() {
-            return peeked_token || (peeked_token = read_token());
+            if (!peeked.length) {
+                peeked.push(read_token());
+            }
+            return peeked[0];
+        }
+
+        function ahead(count, func) {
+            var n = count - peeked.length;
+            while (!input.eof() && n-- > 0) {
+                peeked.push(read_token());
+            }
+            return func.call(null, peeked, function(n){
+                peeked.splice(0, n == null ? count : n);
+            });
         }
 
         function eof() {
@@ -568,28 +632,39 @@ TWIG = function(){
 
 };
 
+var t = TWIG().init();
+console.time("PARSER");
+var code = "<p>    {{- a + b['wak' + 'mak'] }}</p>";
+var code = "<p>{% if foo + bar == 0 %} ZERO {% else %} blah {% endif %}";
+var ast = t.parse(code);
+console.timeEnd("PARSER");
+console.log(JSON.stringify(ast, null, 2));
+
 // var t = TWIG().init();
-// console.time("PARSER");
-// var ast = t.parse("{{ a + b.mak }}");
-// console.timeEnd("PARSER");
-// console.log(JSON.stringify(ast, null, 2));
+// var l = t.Lexer("foo {% if expr %} bar {% else %} baz {% endif %}");
+// l.ahead(3, function(tokens, consume){
+//     console.log(tokens);
+//     consume();
+// });
+// console.log(l.next());
+// console.log(l.next());
+// console.log(l.next());
 
-
-console.time("LEXER");
-var t = TWIG();
-t.init();
-// var l = t.Lexer("foo {# bar #}     {{- '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\n\
-//  {% set X = { foo: 1, \"bar\": 2 } %}\
-// {{foo}}{{bar}}\
-// ");
-var l = t.Lexer("foo    \n\
-{%- verbatim -%}\n\
-  {{ ckt }}\n\
-{%- endverbatim -%}\n\
-  {{wakabar}}");
-var a = [];
-while (!l.eof()) {
-    a.push(l.next());
-}
-console.timeEnd("LEXER");
-console.log(a);
+// console.time("LEXER");
+// var t = TWIG();
+// t.init();
+// // var l = t.Lexer("foo {# bar #}     {{- '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\n\
+// //  {% set X = { foo: 1, \"bar\": 2 } %}\
+// // {{foo}}{{bar}}\
+// // ");
+// var l = t.Lexer("foo    \n\
+// {%- verbatim -%}\n\
+//   {{ ckt }}\n\
+// {%- endverbatim -%}\n\
+//   {{wakabar}}");
+// var a = [];
+// while (!l.eof()) {
+//     a.push(l.next());
+// }
+// console.timeEnd("LEXER");
+// console.log(a);

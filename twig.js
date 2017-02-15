@@ -50,6 +50,7 @@ TWIG = function(){
 
     var NODE_PROG         = "prog";
     var NODE_BOOLEAN      = "boolean";
+    var NODE_NULL         = "null";
     var NODE_ASSIGN       = "assign";
     var NODE_BINARY       = "binary";
     var NODE_UNARY        = "unary";
@@ -59,6 +60,7 @@ TWIG = function(){
     var NODE_ARRAY        = "array";
     var NODE_HASH         = "hash";
     var NODE_INDEX        = "index";
+    var NODE_STAT         = "stat";
 
     var CORE_TAGS = {
         "if": {
@@ -175,9 +177,10 @@ TWIG = function(){
     };
 
     var exports = {
-        parse: parse,
-        Lexer: Lexer,
-        init: init
+        parse   : parse,
+        Lexer   : Lexer,
+        init    : init,
+        compile : compile
     };
     return exports;
 
@@ -256,7 +259,7 @@ TWIG = function(){
                     croak("Tag `" + tag + "` is not supported");
                 }
                 var node = impl.parse(context);
-                node.type = "stat";
+                node.type = NODE_STAT;
                 node.tag = tag;
                 return node;
             }
@@ -315,6 +318,9 @@ TWIG = function(){
             }
             if (tok.value == "false") {
                 return { type: NODE_BOOLEAN, value: false };
+            }
+            if (tok.value == "null") {
+                return { type: NODE_NULL, value: null };
             }
             return tok;
         }
@@ -412,7 +418,7 @@ TWIG = function(){
         function maybe_filter(expr) {
             if (looking_at(NODE_OPERATOR, "|")) {
                 next();
-                var sym = skip(NODE_SYMBOL);
+                var sym = skip(NODE_SYMBOL).value;
                 var args = looking_at(NODE_PUNC, "(")
                     ? delimited("(", ")", ",", parse_expression)
                     : [];
@@ -492,6 +498,179 @@ TWIG = function(){
 
         function dump(node) {
             return JSON.stringify(node);
+        }
+    }
+
+    function compile(node, env) {
+        return "function template(data){ return(" + compile(env, node) + "); }";
+
+        function compile(env, node) {
+            // var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
+            var loc = "";
+            return parens(loc + _compile(env, node));
+        }
+
+        function _compile(env, node) {
+            switch (node.type) {
+              case NODE_TEXT:
+              case NODE_STR:
+              case NODE_NUMBER:
+              case NODE_BOOLEAN:
+              case NODE_NULL:
+                return JSON.stringify(node.value);
+
+              case NODE_PROG:
+                return compile_prog(env, node);
+
+              case NODE_BINARY:
+                return compile_binary(env, node);
+
+              case NODE_CONDITIONAL:
+                return compile_ternary(env, node);
+
+              case NODE_UNARY:
+                return compile_unary(env, node);
+
+              case NODE_FILTER:
+                return compile_filter(env, node);
+
+              case NODE_INDEX:
+                return compile_index(env, node);
+
+              case NODE_ARRAY:
+                return compile_array(env, node);
+
+              case NODE_HASH:
+                return compile_hash(env, node);
+
+              case NODE_SYMBOL:
+                return compile_symbol(env, node);
+
+              case NODE_STAT:
+                return compile_stat(env, node);
+            }
+
+            throw new Error("Cannot compile node " + JSON.stringify(node));
+        }
+
+        function parens(str) {
+            return "(" + str + ")";
+        }
+
+        function compile_prog(env, node) {
+            return node.body.map(function(item){
+                return compile(env, item);
+            }).join(" + ");
+        }
+
+        function compile_index(env, node) {
+            return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
+        }
+
+        function compile_filter(env, node) {
+            var code = "TWIG_RUNTIME.filter[" + JSON.stringify(node.name)
+                + "](" + compile(env, node.expr);
+            if (node.args.length) {
+                code += ", " + node.args.map(function(item){
+                    return compile(env, item);
+                }).join(", ");
+            }
+            return code + ")";
+        }
+
+        function compile_bool(env, node) {
+            return "TWIG_RUNTIME.bool(" + compile(env, node) + ")";
+        }
+
+        function compile_str(env, node) {
+            return "String(" + compile(env, node) + ")";
+        }
+
+        function compile_array(env, node) {
+            return "[" + node.data.map(function(item){
+                return compile(env, item);
+            }).join(",") + "]";
+        }
+
+        function compile_hash(env, node) {
+            return "TWIG_RUNTIME.make_hash(" + node.data.map(function(item){
+                return compile(env, item.key) + "," + compile(env, item.value);
+            }).join(", ") + ")";
+        }
+
+        function compile_symbol(env, node) {
+            return "var_" + node.value;
+        }
+
+        function compile_binary(env, node) {
+            var op = node.operator;
+            switch (op) {
+              case "?:":
+              case "or":
+                return compile_bool(env, node.left) + "||" + compile(env, node.right);
+
+              case "and":
+                return compile_bool(env, node.left) + "&&" + compile(env, node.right);
+
+              case "b-or":
+                return compile(env, node.left) + "|" + compile(env, node.right);
+
+              case "b-and":
+                return compile(env, node.left) + "&" + compile(env, node.right);
+
+              case "b-xor":
+                return compile(env, node.left) + "^" + compile(env, node.right);
+
+              case "==": case "!=": case "<": case ">": case ">=": case "<=":
+              case "+": case "-": case "*": case "/": case "%":
+                return compile(env, node.left) + op + compile(env, node.right);
+
+              case "//":
+                return "(" + compile(env, node.left) + "/" + compile(env, node.right) + ")|0";
+
+              case "**":
+                return "Math.power(" + compile(env, node.left) + "," + compile(env, node.right) + ")";
+
+              case "~":
+                return compile_str(env, node.left) + "+" + compile_str(env, node.right);
+
+              case "not in":
+                return "!" + compile_operator(env, "in", node);
+
+              case "matches":
+              case "starts with":
+              case "ends with":
+              case "..":
+              case "in":
+                return compile_operator(env, op, node);
+            }
+
+            throw new Error("Unknown operator " + op);
+        }
+
+        function compile_unary(env, node) {
+            var op = node.operator;
+            if (op == "not") op = "!";
+            return op + compile(env, node.expr);
+        }
+
+        function compile_ternary(env, node) {
+            return compile_bool(env, node.cond)
+                + "?" + compile(env, node.then)
+                + ":" + compile(env, node.else);
+        }
+
+        function compile_operator(env, op, node) {
+            return "TWIG_RUNTIME.operator[" + JSON.stringify(op) + "]("
+                + compile(env, node.left) + ", " + compile(env, node.right) + ")";
+        }
+
+        function compile_stat(env, node) {
+            var impl = CORE_TAGS[node.tag];
+            if (!impl || !impl.compile) {
+                throw new Error("Compiler not implemented for " + node.tag);
+            }
+            return impl.compile(env, node);
         }
     }
 
@@ -741,5 +920,38 @@ TWIG = function(){
             throw new Error(msg + " (" + line + ":" + col + ")");
         }
     }
+
+    function Environment(parent) {
+        this.vars = Object.create(parent ? parent.vars : null);
+        this.parent = parent;
+    }
+    Environment.prototype = {
+        extend: function() {
+            return new Environment(this);
+        },
+        lookup: function(name) {
+            var scope = this;
+            while (scope) {
+                if (Object.prototype.hasOwnProperty.call(scope.vars, name))
+                    return scope;
+                scope = scope.parent;
+            }
+        },
+        get: function(name) {
+            if (name in this.vars)
+                return this.vars[name];
+            throw new Error("Undefined variable " + name);
+        },
+        set: function(name, value) {
+            var scope = this.lookup(name);
+            // let's not allow defining globals from a nested environment
+            if (!scope && this.parent)
+                throw new Error("Undefined variable " + name);
+            return (scope || this).vars[name] = value;
+        },
+        def: function(name, value) {
+            return this.vars[name] = value;
+        }
+    };
 
 };

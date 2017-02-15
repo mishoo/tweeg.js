@@ -1,4 +1,4 @@
-TWIG = function(){
+TWEEG = function(){
 
     "use strict";
 
@@ -62,13 +62,15 @@ TWIG = function(){
     var NODE_INDEX        = "index";
     var NODE_STAT         = "stat";
 
+    /* -----[ core tag parsers ]----- */
+
     var CORE_TAGS = {
         "if": {
             parse: function(X) {
                 var node = {};
-                node["cond"] = X.parse_expression();
+                node.cond = X.parse_expression();
                 X.skip(NODE_STAT_END);
-                node["then"] = X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/));
+                node.then = X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/));
                 var tag = X.skip(NODE_SYMBOL).value;
                 X.skip(NODE_STAT_END);
                 if (tag == "else") {
@@ -176,6 +178,8 @@ TWIG = function(){
         }
     };
 
+    /* -----[ exports ]----- */
+
     var exports = {
         parse   : parse,
         Lexer   : Lexer,
@@ -207,6 +211,8 @@ TWIG = function(){
         }
         return precedence;
     }
+
+    /* -----[ Das Parser ]----- */
 
     function parse(input) {
         input = Lexer(input);
@@ -501,6 +507,8 @@ TWIG = function(){
         }
     }
 
+    /* -----[ Das Compiler ]----- */
+
     function compile(node, env) {
         return "function template(data){ return(" + compile(env, node) + "); }";
 
@@ -568,7 +576,7 @@ TWIG = function(){
         }
 
         function compile_filter(env, node) {
-            var code = "TWIG_RUNTIME.filter[" + JSON.stringify(node.name)
+            var code = "TWEEG_RUNTIME.filter[" + JSON.stringify(node.name)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
                 code += ", " + node.args.map(function(item){
@@ -579,7 +587,7 @@ TWIG = function(){
         }
 
         function compile_bool(env, node) {
-            return "TWIG_RUNTIME.bool(" + compile(env, node) + ")";
+            return "TWEEG_RUNTIME.bool(" + compile(env, node) + ")";
         }
 
         function compile_str(env, node) {
@@ -593,7 +601,7 @@ TWIG = function(){
         }
 
         function compile_hash(env, node) {
-            return "TWIG_RUNTIME.make_hash(" + node.data.map(function(item){
+            return "TWEEG_RUNTIME.make_hash(" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(", ") + ")";
         }
@@ -661,7 +669,7 @@ TWIG = function(){
         }
 
         function compile_operator(env, op, node) {
-            return "TWIG_RUNTIME.operator[" + JSON.stringify(op) + "]("
+            return "TWEEG_RUNTIME.operator[" + JSON.stringify(op) + "]("
                 + compile(env, node.left) + ", " + compile(env, node.right) + ")";
         }
 
@@ -673,6 +681,8 @@ TWIG = function(){
             return impl.compile(env, node);
         }
     }
+
+    /* -----[ Das Lexer ]----- */
 
     function Lexer(input) {
         input = InputStream(input);
@@ -880,6 +890,8 @@ TWIG = function(){
         }
     }
 
+    /* -----[ Lexer utilities ]----- */
+
     function InputStream(input, pos, line, col) {
         pos = pos || 0;
         line = line || 1;
@@ -920,6 +932,8 @@ TWIG = function(){
             throw new Error(msg + " (" + line + ":" + col + ")");
         }
     }
+
+    /* -----[ Das Environment ]----- */
 
     function Environment(parent) {
         this.vars = Object.create(parent ? parent.vars : null);

@@ -2,8 +2,8 @@
 
 var fs = require("fs");
 
-require("../twig.js");
-var t = TWIG().init();
+require("../tweeg.js");
+var t = TWEEG().init();
 
 // var tmpl = fs.readFileSync("./set.html.twig", "utf8");
 // var ast = t.parse(tmpl);

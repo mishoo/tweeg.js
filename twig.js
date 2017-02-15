@@ -60,6 +60,120 @@ TWIG = function(){
     var NODE_HASH         = "hash";
     var NODE_INDEX        = "index";
 
+    var CORE_TAGS = {
+        "if": {
+            parse: function(X) {
+                var node = {};
+                node["cond"] = X.parse_expression();
+                X.skip(NODE_STAT_END);
+                node["then"] = X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/));
+                var tag = X.skip(NODE_SYMBOL).value;
+                X.skip(NODE_STAT_END);
+                if (tag == "else") {
+                    node.else = X.parse_until(X.end_body_predicate(/^endif$/, true));
+                } else if (tag == "elseif") {
+                    node.else = X.parse_tag_if();
+                }
+                return node;
+            }
+        },
+
+        "for": {
+            parse: function(X) {
+                var node = {};
+                node.sym = X.skip(NODE_SYMBOL).value;
+                if (X.looking_at(NODE_PUNC, ",")) {
+                    X.next();
+                    node.sym2 = X.skip(NODE_SYMBOL); // key, val in {object}
+                }
+                X.skip(NODE_OPERATOR, "in");
+                node.data = X.parse_expression();
+                if (X.looking_at(NODE_SYMBOL, "if")) {
+                    X.next();
+                    node.cond = X.parse_expression();
+                }
+                X.skip(NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^(?:else|endfor)$/));
+                var tag = X.skip(NODE_SYMBOL).value;
+                X.skip(NODE_STAT_END);
+                if (tag == "else") {
+                    node.else = X.parse_until(X.end_body_predicate(/^endfor$/, true));
+                }
+                return node;
+            }
+        },
+
+        "do": {
+            parse: function(X) {
+                var node = { expr: X.parse_expression() };
+                X.skip(NODE_STAT_END);
+                return node;
+            }
+        },
+
+        "set": {
+            parse: function(X) {
+                var defs = [ { name: X.skip(NODE_SYMBOL).value } ];
+                var node = { defs: defs };
+                while (X.looking_at(NODE_PUNC, ",")) {
+                    X.next();
+                    defs.push({ name: X.skip(NODE_SYMBOL).value });
+                }
+                var has_equal = X.looking_at(NODE_OPERATOR, "=");
+                if (has_equal) {
+                    X.next();
+                    defs.forEach(function(def, i){
+                        if (i) X.skip(NODE_PUNC, ",");
+                        def.value = X.parse_expression();
+                    });
+                    X.skip(NODE_STAT_END);
+                } else {
+                    X.skip(NODE_STAT_END);
+                    if (defs.length != 1) {
+                        X.croak("`set` without equal must define exactly one variable");
+                    }
+                    defs[0].value = X.parse_until(X.end_body_predicate(/^endset$/, true));
+                }
+                return node;
+            }
+        },
+
+        "with": {
+            parse: function(X) {
+                var node = {};
+                if (X.looking_at(NODE_SYMBOL, "only")) {
+                    X.next();
+                    node.only = true;
+                }
+                X.skip(NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^endwith$/, true));
+                return node;
+            }
+        },
+
+        "macro": {
+            parse: function(X) {
+                var node = {};
+                node.name = X.skip(NODE_SYMBOL).value;
+                node.vars = X.delimited("(", ")", ",", function(){
+                    return X.skip(NODE_SYMBOL).value;
+                });
+                X.skip(NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^endmacro$/, true));
+                return node;
+            }
+        },
+
+        "spaceless": {
+            parse: function(X) {
+                X.skip(NODE_STAT_END);
+                return {
+                    body: X.parse_until(X.end_body_predicate(/^endspaceless$/, true))
+                };
+            }
+        }
+    };
+
     var exports = {
         parse: parse,
         Lexer: Lexer,
@@ -94,8 +208,19 @@ TWIG = function(){
     function parse(input) {
         input = Lexer(input);
 
-        var CORE_TAGS = {
-            "if": parse_tag_if
+        var context = {
+            croak              : croak,
+            delimited          : delimited,
+            end_body_predicate : end_body_predicate,
+            eof                : input.eof,
+            is                 : is,
+            looking_at         : looking_at,
+            next               : next,
+            parse_expression   : parse_expression,
+            parse_next         : parse_next,
+            parse_until        : parse_until,
+            peek               : peek,
+            skip               : skip
         };
 
         return parse_until(function(){ return false });
@@ -126,12 +251,16 @@ TWIG = function(){
             if (tok.type == NODE_STAT_BEG) {
                 next();
                 var tag = skip(NODE_SYMBOL).value;
-                var parser = CORE_TAGS[tag];
-                var node = parser();
+                var impl = CORE_TAGS[tag];
+                if (!impl) {
+                    croak("Tag `" + tag + "` is not supported");
+                }
+                var node = impl.parse(context);
                 node.type = "stat";
                 node.tag = tag;
                 return node;
             }
+            croak("Unexpected token");
         }
 
         function parse_expression() {
@@ -242,23 +371,6 @@ TWIG = function(){
                     }
                 });
             };
-        }
-
-        /* -----[ core tag parsers ]----- */
-
-        function parse_tag_if() {
-            var node = {};
-            node["cond"] = parse_expression();
-            skip(NODE_STAT_END);
-            node["then"] = parse_until(end_body_predicate(/^(?:elseif|else|endif)$/));
-            var tag = skip(NODE_SYMBOL).value;
-            skip(NODE_STAT_END);
-            if (tag == "else") {
-                node.else = parse_until(end_body_predicate(/^endif$/, true));
-            } else if (tag == "elseif") {
-                node.else = parse_tag_if();
-            }
-            return node;
         }
 
         /* -----[ the "maybe" functions ]----- */
@@ -631,40 +743,3 @@ TWIG = function(){
     }
 
 };
-
-var t = TWIG().init();
-console.time("PARSER");
-var code = "<p>    {{- a + b['wak' + 'mak'] }}</p>";
-var code = "<p>{% if foo + bar == 0 %} ZERO {% else %} blah {% endif %}";
-var ast = t.parse(code);
-console.timeEnd("PARSER");
-console.log(JSON.stringify(ast, null, 2));
-
-// var t = TWIG().init();
-// var l = t.Lexer("foo {% if expr %} bar {% else %} baz {% endif %}");
-// l.ahead(3, function(tokens, consume){
-//     console.log(tokens);
-//     consume();
-// });
-// console.log(l.next());
-// console.log(l.next());
-// console.log(l.next());
-
-// console.time("LEXER");
-// var t = TWIG();
-// t.init();
-// // var l = t.Lexer("foo {# bar #}     {{- '123' starts with .25 + 0x20 ? answer.yes : answer.nope -}}   waka\n\
-// //  {% set X = { foo: 1, \"bar\": 2 } %}\
-// // {{foo}}{{bar}}\
-// // ");
-// var l = t.Lexer("foo    \n\
-// {%- verbatim -%}\n\
-//   {{ ckt }}\n\
-// {%- endverbatim -%}\n\
-//   {{wakabar}}");
-// var a = [];
-// while (!l.eof()) {
-//     a.push(l.next());
-// }
-// console.timeEnd("LEXER");
-// console.log(a);

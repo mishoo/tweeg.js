@@ -1,0 +1,12 @@
+{% macro test(header, footer) %}
+  {% set code %}
+    {% spaceless %}
+      <ul>
+        {% for user in users %}
+          <li>{{ user.name }}</li>
+        {% endfor %}
+      </ul>
+    {% endspaceless %}
+  {% endset %}
+  {{ header }}-{{ code }}-{{ footer }}
+{% endmacro %}

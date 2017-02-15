@@ -1,0 +1,17 @@
+<ul>
+  {% for user in users %}
+    <li>{{ user.name }}</li>
+  {% endfor %}
+</ul>
+
+<ul>
+  {% for key, user in users %}
+    <li>{{ user.name }}</li>
+  {% endfor %}
+</ul>
+
+<ul>
+  {% for key, user in users|slice(0, 10) if user.name != 'foo' and user.id != 'bar' %}
+    <li>{{ user.name }}</li>
+  {% endfor %}
+</ul>

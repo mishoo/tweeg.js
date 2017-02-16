@@ -645,6 +645,7 @@ TWEEG = function(){
     function compile(node, env) {
         if (!env) env = new Environment();
         var context = {
+            root_env         : env,
             compile          : compile,
             compile_sym      : compile_sym,
             compile_bool     : compile_bool,
@@ -755,11 +756,27 @@ TWEEG = function(){
         }
 
         function compile_bool(env, node) {
-            return "TR.bool(" + compile(env, node) + ")";
+            return node.type == NODE_BOOLEAN
+                ? compile(env, node)
+                : "TR.bool(" + compile(env, node) + ")";
+        }
+
+        function compile_num(env, node) {
+            return node.type == NODE_NUMBER
+                ? compile(env, node)
+                : "TR.number(" + compile(env, node) + ")";
         }
 
         function compile_str(env, node) {
-            return "String(" + compile(env, node) + ")";
+            return node.type == NODE_STR
+                ? compile(env, node)
+                : "String(" + compile(env, node) + ")";
+        }
+
+        function compile_interpolated_str(env, node) {
+            return node.data.map(function(item){
+                return compile_str(env, item);
+            }).join(" + ");
         }
 
         function compile_array(env, node) {
@@ -772,14 +789,6 @@ TWEEG = function(){
             return "TR.make_hash([" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
-        }
-
-        function compile_interpolated_str(env, node) {
-            return node.data.map(function(item){
-                return item.type == NODE_STR
-                    ? compile(env, item)
-                    : "String(" + compile(env, item) + ")";
-            }).join(" + ");
         }
 
         function compile_sym(env, node) {
@@ -850,14 +859,10 @@ TWEEG = function(){
             throw new Error("Unknown operator " + op);
         }
 
-        function compile_num(env, num) {
-            return "TR.number(" + compile(env, num) + ")";
-        }
-
         function compile_unary(env, node) {
-            var op = node.operator;
-            if (op == "not") op = "!";
-            return op + compile(env, node.expr);
+            return node.operator == "not"
+                ? "!" + compile_bool(env, node.expr)
+                : node.operator + compile_num(env, node.expr);
         }
 
         function compile_ternary(env, node) {

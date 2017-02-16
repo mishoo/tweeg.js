@@ -7,9 +7,11 @@
   {%- endfor %}
 </ul>
 
-<h2>Test `loop` variable; nested loops</h2>
+<h2>Test `loop` variable; nested loops</h2>{#
 
-<ul>
+Comments are ignored
+
+#}<ul>
   {%- for link in links %}
     <li>
       {%- set title, url = link.title, link.url %}

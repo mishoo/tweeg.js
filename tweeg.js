@@ -976,7 +976,7 @@ TWEEG = function(){
         }
 
         function skip_comment() {
-            var m = input.skip(/^(.*?)(-?\#\})/);
+            var m = input.skip(/^([^]*?)(-?\#\})/);
             if (!m) {
                 croak("Unfinished comment");
             }

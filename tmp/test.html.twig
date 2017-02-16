@@ -1,0 +1,32 @@
+<ul>
+  {%- for link in links if link.url is not "#" %}
+    <li>
+      {%- set title, url = link.title, link.url %}
+      <a href="{{ url }}" title="{{ title }}">{{ link.text }}</a>
+    </li>
+  {%- endfor %}
+</ul>
+
+<h2>Test `loop` variable; nested loops</h2>
+
+<ul>
+  {%- for link in links %}
+    <li>
+      {%- set title, url = link.title, link.url %}
+      {{ loop.index }}. <a href="{{ url }}" title="{{ title }}">{{ link.text }}</a>
+      first: {{ loop.first }}, last: {{ loop.last }}, revindex: {{ loop.revindex }}, revindex0: {{ loop.revindex0 }}
+      Looping through it {{ link|json_encode }}
+      {%- for key, val in link %}
+        {{ key }} => {{ val|json_encode }}
+      {%- endfor %}
+    </li>
+  {%- endfor %}
+</ul>
+
+{% set aye = "aye" %}
+{% set nope = "nope" %}
+<p>{{ 'foo' not in { foo: 1, bar: 2 } ? "-#{aye}-" : "-#{nope}-" }}</p>
+
+{% for i in 10..1 if (i % 2) is not 0 %}
+  <li>{{ i }}</li>
+{% endfor %}

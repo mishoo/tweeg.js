@@ -72,13 +72,29 @@ TWEEG = function(){
 
     /* -----[ core tag parsers ]----- */
 
+    var SYM_LOOP = {
+        type: NODE_SYMBOL,
+        value: "loop"
+    };
+
     var CORE_TAGS = {
+        "autoescape": {
+            parse: function(X) {
+                return {
+                    type: X.parse_expression(),
+                    body: (X.skip(NODE_STAT_END),
+                           X.parse_until(X.end_body_predicate(/^endautoescape$/, true)))
+                };
+            }
+        },
+
         "if": {
             parse: function(X) {
-                var node = {};
-                node.cond = X.parse_expression();
-                X.skip(NODE_STAT_END);
-                node.then = X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/));
+                var node = {
+                    cond: X.parse_expression(),
+                    then: (X.skip(NODE_STAT_END),
+                           X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/)))
+                };
                 var tag = X.skip(NODE_SYMBOL).value;
                 X.skip(NODE_STAT_END);
                 if (tag == "else") {
@@ -87,13 +103,19 @@ TWEEG = function(){
                     node.else = X.parse_tag_if();
                 }
                 return node;
+            },
+            compile: function(env, X, node) {
+                var condition = X.compile_bool(env, node.cond);
+                var true_branch = X.compile(env, node.then);
+                var else_branch = node.else && X.compile(env, node.else);
+                return condition + "?" + true_branch + ":" + (else_branch || "");
             }
         },
 
         "for": {
             parse: function(X) {
                 var node = {};
-                node.sym = X.skip(NODE_SYMBOL).value;
+                node.sym = X.skip(NODE_SYMBOL);
                 if (X.looking_at(NODE_PUNC, ",")) {
                     X.next();
                     node.sym2 = X.skip(NODE_SYMBOL); // key, val in {object}
@@ -112,6 +134,29 @@ TWEEG = function(){
                     node.else = X.parse_until(X.end_body_predicate(/^endfor$/, true));
                 }
                 return node;
+            },
+            compile: function(env, X, node) {
+                var data = X.compile(env, node.data);
+                env = env.extend(node.sym.value, "loop");
+                if (node.sym2) {
+                    env.def(node.sym2.value);
+                }
+                var cond = node.cond ? X.compile(env, node.cond) : null;
+                env = env.extend();
+                var body = X.compile(env, node.body);
+                var code = "TR.for(" + data + ","
+                    + "function("
+                    + X.compile_sym(env, SYM_LOOP);
+                if (node.sym2) {
+                    code += "," + X.compile_sym(env, node.sym2);
+                }
+                code += "," + X.compile_sym(env, node.sym) + "){";
+                code += X.output_vars(env.own());
+                if (cond != null) {
+                    code += "if (!" + cond + ") return TR;";
+                }
+                code += "return " + body + ";})";
+                return code;
             }
         },
 
@@ -125,11 +170,11 @@ TWEEG = function(){
 
         "set": {
             parse: function(X) {
-                var defs = [ { name: X.skip(NODE_SYMBOL).value } ];
+                var defs = [ { name: X.skip(NODE_SYMBOL) } ];
                 var node = { defs: defs };
                 while (X.looking_at(NODE_PUNC, ",")) {
                     X.next();
-                    defs.push({ name: X.skip(NODE_SYMBOL).value });
+                    defs.push({ name: X.skip(NODE_SYMBOL) });
                 }
                 var has_equal = X.looking_at(NODE_OPERATOR, "=");
                 if (has_equal) {
@@ -147,6 +192,13 @@ TWEEG = function(){
                     defs[0].value = X.parse_until(X.end_body_predicate(/^endset$/, true));
                 }
                 return node;
+            },
+            compile: function(env, X, node) {
+                return "(" + node.defs.map(function(def){
+                    env.set(def.name.value);
+                    return X.compile_sym(env, def.name)
+                        + "=" + X.compile(env, def.value);
+                }) + ",'')";
             }
         },
 
@@ -166,9 +218,9 @@ TWEEG = function(){
         "macro": {
             parse: function(X) {
                 var node = {};
-                node.name = X.skip(NODE_SYMBOL).value;
+                node.name = X.skip(NODE_SYMBOL);
                 node.vars = X.delimited("(", ")", ",", function(){
-                    return X.skip(NODE_SYMBOL).value;
+                    return X.skip(NODE_SYMBOL);
                 });
                 X.skip(NODE_STAT_END);
                 node.body = X.parse_until(X.end_body_predicate(/^endmacro$/, true));
@@ -194,7 +246,11 @@ TWEEG = function(){
     }
     Environment.prototype = {
         extend: function() {
-            return new Environment(this);
+            var env = new Environment(this);
+            for (var i = arguments.length; --i >= 0;) {
+                env.def(arguments[i]);
+            }
+            return env;
         },
         lookup: function(name) {
             var scope = this;
@@ -210,14 +266,13 @@ TWEEG = function(){
             throw new Error("Undefined variable " + name);
         },
         set: function(name, value) {
-            var scope = this.lookup(name);
-            // let's not allow defining globals from a nested environment
-            if (!scope && this.parent)
-                throw new Error("Undefined variable " + name);
-            return (scope || this).vars[name] = value;
+            return (this.lookup(name) || this).def(name, value);
         },
         def: function(name, value) {
             return this.vars[name] = value;
+        },
+        own: function() {
+            return Object.keys(this.vars);
         }
     };
 
@@ -240,7 +295,11 @@ TWEEG = function(){
     }
 
     function quote_regexp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        var rx = string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (/[a-z]$/i.test(string)) {
+            rx += "\\b";
+        }
+        return rx;
     }
 
     function make_operators(a) {
@@ -356,9 +415,12 @@ TWEEG = function(){
         }
 
         function parse_call(func) {
+            if (func.type != NODE_SYMBOL) {
+                croak("Unexpected function call");
+            }
             return {
                 type: NODE_CALL,
-                func: func,
+                func: func.value,
                 args: delimited("(", ")", ",", parse_expression)
             };
         }
@@ -392,7 +454,7 @@ TWEEG = function(){
                 }
             }
             tok = skip(NODE_INT_STR_END);
-            if (tok.value.length) {
+            if (tok.value.length || !data.length) {
                 tok.type = NODE_STR;
                 data.push(tok);
             }
@@ -582,7 +644,28 @@ TWEEG = function(){
 
     function compile(node, env) {
         if (!env) env = new Environment();
-        return "function template(data){ return(" + compile(env, node) + "); }";
+        var context = {
+            compile          : compile,
+            compile_sym      : compile_sym,
+            compile_bool     : compile_bool,
+            compile_num      : compile_num,
+            compile_str      : compile_str,
+            output_vars      : output_vars,
+            mangle_name      : mangle_name
+        };
+        var globals = [];
+        return (function(){
+            var body = compile(env, node);
+            var code = "function template(DATA, TR){";
+            code += output_vars(env.own());
+            if (globals.length) {
+                code += "var " + globals.map(function(name){
+                    return mangle_name(name) + "=DATA[" + JSON.stringify(name) + "]";
+                }).join(",") + ";";
+            }
+            code += "return " + body + "}";
+            return code;
+        })();
 
         function compile(env, node) {
             // var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
@@ -624,7 +707,7 @@ TWEEG = function(){
                 return compile_hash(env, node);
 
               case NODE_SYMBOL:
-                return compile_symbol(env, node);
+                return compile_sym(env, node);
 
               case NODE_STAT:
                 return compile_stat(env, node);
@@ -644,15 +727,16 @@ TWEEG = function(){
         }
 
         function compile_prog(env, node) {
-            return node.body.map(function(item){
+            return "TR.out([" + node.body.map(function(item){
                 return compile(env, item);
-            }).join(" + ");
+            }).join(",") + "])";
         }
 
         function compile_call(env, node) {
-            return compile(env, node.func) + "(" + node.args.map(function(item){
-                return compile(env, item);
-            }).join(",") + ")";
+            return "TR.func[" + JSON.stringify(node.func)
+                + "](" + node.args.map(function(item){
+                    return compile(env, item);
+                }).join(",") + ")";
         }
 
         function compile_index(env, node) {
@@ -660,7 +744,7 @@ TWEEG = function(){
         }
 
         function compile_filter(env, node) {
-            var code = "TWEEG_RUNTIME.filter[" + JSON.stringify(node.name)
+            var code = "TR.filter[" + JSON.stringify(node.name)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
                 code += "," + node.args.map(function(item){
@@ -671,7 +755,7 @@ TWEEG = function(){
         }
 
         function compile_bool(env, node) {
-            return "TWEEG_RUNTIME.bool(" + compile(env, node) + ")";
+            return "TR.bool(" + compile(env, node) + ")";
         }
 
         function compile_str(env, node) {
@@ -685,55 +769,75 @@ TWEEG = function(){
         }
 
         function compile_hash(env, node) {
-            return "TWEEG_RUNTIME.make_hash([" + node.data.map(function(item){
+            return "TR.make_hash([" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
         }
 
         function compile_interpolated_str(env, node) {
             return node.data.map(function(item){
-                return "String(" + compile(env, item) + ")";
+                return item.type == NODE_STR
+                    ? compile(env, item)
+                    : "String(" + compile(env, item) + ")";
             }).join(" + ");
         }
 
-        function compile_symbol(env, node) {
-            return "var_" + node.value;
+        function compile_sym(env, node) {
+            var name = node.value;
+            if (!env.lookup(name) && globals.indexOf(name) < 0) {
+                globals.push(name);
+            }
+            return mangle_name(name);
+        }
+
+        function mangle_name(name) {
+            return "$_" + name;
         }
 
         function compile_binary(env, node) {
             var op = node.operator;
             switch (op) {
               case "?:":
-              case "or":
                 return compile_bool(env, node.left) + "||" + compile(env, node.right);
 
+              case "or":
+                return compile_bool(env, node.left) + "||" + compile_bool(env, node.right);
+
               case "and":
-                return compile_bool(env, node.left) + "&&" + compile(env, node.right);
+                return compile_bool(env, node.left) + "&&" + compile_bool(env, node.right);
 
               case "b-or":
-                return compile(env, node.left) + "|" + compile(env, node.right);
+                return compile_num(env, node.left) + "|" + compile_num(env, node.right);
 
               case "b-and":
-                return compile(env, node.left) + "&" + compile(env, node.right);
+                return compile_num(env, node.left) + "&" + compile_num(env, node.right);
 
               case "b-xor":
-                return compile(env, node.left) + "^" + compile(env, node.right);
+                return compile_num(env, node.left) + "^" + compile_num(env, node.right);
 
               case "==": case "!=": case "<": case ">": case ">=": case "<=":
-              case "+": case "-": case "*": case "/": case "%":
                 return compile(env, node.left) + op + compile(env, node.right);
 
+              case "+": case "-": case "*": case "/": case "%":
+                return compile_num(env, node.left) + op + compile_num(env, node.right);
+
               case "//":
-                return "(" + compile(env, node.left) + "/" + compile(env, node.right) + ")|0";
+                return "(" + compile_num(env, node.left) + "/" + compile_num(env, node.right) + ")|0";
 
               case "**":
-                return "Math.power(" + compile(env, node.left) + "," + compile(env, node.right) + ")";
+                return "Math.power(" + compile_num(env, node.left) + "," + compile_num(env, node.right) + ")";
 
               case "~":
                 return compile_str(env, node.left) + "+" + compile_str(env, node.right);
 
               case "not in":
                 return "!" + compile_operator(env, "in", node);
+
+              case "is":
+                return compile(env, node.left) + "===" + compile(env, node.right);
+
+              case "is not":
+                return compile(env, node.left) + "!==" + compile(env, node.right);
 
               case "matches":
               case "starts with":
@@ -744,6 +848,10 @@ TWEEG = function(){
             }
 
             throw new Error("Unknown operator " + op);
+        }
+
+        function compile_num(env, num) {
+            return "TR.number(" + compile(env, num) + ")";
         }
 
         function compile_unary(env, node) {
@@ -759,16 +867,25 @@ TWEEG = function(){
         }
 
         function compile_operator(env, op, node) {
-            return "TWEEG_RUNTIME.operator[" + JSON.stringify(op) + "]("
+            return "TR.operator[" + JSON.stringify(op) + "]("
                 + compile(env, node.left) + "," + compile(env, node.right) + ")";
         }
 
         function compile_stat(env, node) {
             var impl = CORE_TAGS[node.tag];
             if (!impl || !impl.compile) {
-                throw new Error("Compiler not implemented for " + node.tag);
+                throw new Error("Compiler not implemented for `" + node.tag + "`");
             }
-            return impl.compile(env, node);
+            return impl.compile(env, context, node);
+        }
+
+        function output_vars(vars) {
+            if (vars.length) {
+                return "var " + vars.map(function(name){
+                    return mangle_name(name);
+                }) + ";";
+            }
+            return "";
         }
     }
 

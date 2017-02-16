@@ -1,8 +1,8 @@
 TWEEG_RUNTIME = (function(){
-    return {
+    var TR = {
         filter: {
-            json_encode: function(val) {
-                return JSON.stringify(val);
+            json_encode: function(val, indent) {
+                return JSON.stringify(val, null, indent);
             }
         },
 
@@ -27,12 +27,12 @@ TWEEG_RUNTIME = (function(){
             },
             "..": function(beg, end) {
                 var i;
-                if (beg >= end) {
+                if (end >= beg) {
                     for (i = beg, a = []; i <= end; ++i) {
                         a.push(i);
                     }
                 } else {
-                    for (i = end, a = []; i >= beg; --i) {
+                    for (i = beg, a = []; i >= end; --i) {
                         a.push(i);
                     }
                 }
@@ -50,11 +50,63 @@ TWEEG_RUNTIME = (function(){
             return !!val;       // XXX: there are some twig particularities here
         },
 
+        number: function(val) {
+            if (typeof val == "number") {
+                return val;
+            }
+            // PHP “semantics” below.
+            val = parseFloat(val);
+            return isNaN(val) ? 0 : val;
+        },
+
         make_hash: function(data) {
             for (var i = 0, obj = {}; i < data.length;) {
                 obj[data[i++]] = data[i++];
             }
             return obj;
+        },
+
+        out: function(data) {
+            return data.join(""); // XXX: autoescape!
+        },
+
+        for: function(data, f) {
+            var is_array = Array.isArray(data);
+            var keys = is_array ? null : Object.keys(data);
+            var n = keys ? keys.length : data.length;
+            var loop = {
+                index     : 1,
+                index0    : 0,
+                revindex  : n,
+                revindex0 : n - 1,
+                length    : n,
+                first     : true,
+                last      : !n
+            };
+            var result = [];
+            function add(el, i) {
+                var val = f(loop, el, i);
+                if (val !== TR) {
+                    // for `for`-s that define a condition, the
+                    // compiled code returns TR by convention when the
+                    // condition is false.
+                    result.push(val);
+                    loop.first = false;
+                    ++loop.index;
+                    ++loop.index0;
+                    --loop.revindex;
+                    loop.last = !(--loop.revindex0);
+                }
+            }
+            if (is_array) {
+                data.forEach(add);
+            } else {
+                keys.forEach(function(key){
+                    add(data[key], key);
+                });
+            }
+            return TR.out(result);
         }
     };
-});
+    return TR;
+})();

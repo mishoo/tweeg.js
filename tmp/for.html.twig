@@ -6,7 +6,8 @@
 
 <ul>
   {% for key, user in users %}
-    <li>{{ user.name }}</li>
+    {% set name = user.name %}
+    <li>{{ name }}</li>
   {% endfor %}
 </ul>
 

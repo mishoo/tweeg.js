@@ -51,7 +51,6 @@ TWEEG = function(){
     var NODE_PROG         = "prog";
     var NODE_BOOLEAN      = "boolean";
     var NODE_NULL         = "null";
-    var NODE_ASSIGN       = "assign";
     var NODE_BINARY       = "binary";
     var NODE_UNARY        = "unary";
     var NODE_CONDITIONAL  = "conditional";
@@ -178,6 +177,41 @@ TWEEG = function(){
         }
     };
 
+    /* -----[ Das Environment ]----- */
+
+    function Environment(parent) {
+        this.vars = Object.create(parent ? parent.vars : null);
+        this.parent = parent;
+    }
+    Environment.prototype = {
+        extend: function() {
+            return new Environment(this);
+        },
+        lookup: function(name) {
+            var scope = this;
+            while (scope) {
+                if (Object.prototype.hasOwnProperty.call(scope.vars, name))
+                    return scope;
+                scope = scope.parent;
+            }
+        },
+        get: function(name) {
+            if (name in this.vars)
+                return this.vars[name];
+            throw new Error("Undefined variable " + name);
+        },
+        set: function(name, value) {
+            var scope = this.lookup(name);
+            // let's not allow defining globals from a nested environment
+            if (!scope && this.parent)
+                throw new Error("Undefined variable " + name);
+            return (scope || this).vars[name] = value;
+        },
+        def: function(name, value) {
+            return this.vars[name] = value;
+        }
+    };
+
     /* -----[ exports ]----- */
 
     var exports = {
@@ -297,6 +331,9 @@ TWEEG = function(){
             else if (looking_at(NODE_NUMBER) || looking_at(NODE_STR)) {
                 atom = next();
             }
+            else if (looking_at(NODE_INT_STR)) {
+                atom = parse_interpolated_string();
+            }
             else if ((tok = looking_at(NODE_OPERATOR)) && UNARY_OPERATORS[tok.value]) {
                 atom = {
                     type: NODE_UNARY,
@@ -329,6 +366,9 @@ TWEEG = function(){
                 return { type: NODE_NULL, value: null };
             }
             return tok;
+        }
+
+        function parse_interpolated_string() {
         }
 
         function parse_array() {
@@ -394,7 +434,7 @@ TWEEG = function(){
                 if (his_prec > my_prec) {
                     next();
                     return maybe_binary({
-                        type     : tok.value == "=" ? NODE_ASSIGN : NODE_BINARY,
+                        type     : NODE_BINARY,
                         operator : tok.value,
                         left     : left,
                         right    : maybe_binary(parse_atom(), his_prec)
@@ -510,6 +550,7 @@ TWEEG = function(){
     /* -----[ Das Compiler ]----- */
 
     function compile(node, env) {
+        if (!env) env = new Environment();
         return "function template(data){ return(" + compile(env, node) + "); }";
 
         function compile(env, node) {
@@ -556,6 +597,9 @@ TWEEG = function(){
 
               case NODE_STAT:
                 return compile_stat(env, node);
+
+              case NODE_CALL:
+                return compile_call(env, node);
             }
 
             throw new Error("Cannot compile node " + JSON.stringify(node));
@@ -571,6 +615,12 @@ TWEEG = function(){
             }).join(" + ");
         }
 
+        function compile_call(env, node) {
+            return compile(env, node.func) + "(" + node.args.map(function(item){
+                return compile(env, item);
+            }).join(",") + ")";
+        }
+
         function compile_index(env, node) {
             return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
         }
@@ -579,9 +629,9 @@ TWEEG = function(){
             var code = "TWEEG_RUNTIME.filter[" + JSON.stringify(node.name)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
-                code += ", " + node.args.map(function(item){
+                code += "," + node.args.map(function(item){
                     return compile(env, item);
-                }).join(", ");
+                }).join(",");
             }
             return code + ")";
         }
@@ -601,9 +651,9 @@ TWEEG = function(){
         }
 
         function compile_hash(env, node) {
-            return "TWEEG_RUNTIME.make_hash(" + node.data.map(function(item){
+            return "TWEEG_RUNTIME.make_hash([" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
-            }).join(", ") + ")";
+            }).join(",") + "])";
         }
 
         function compile_symbol(env, node) {
@@ -670,7 +720,7 @@ TWEEG = function(){
 
         function compile_operator(env, op, node) {
             return "TWEEG_RUNTIME.operator[" + JSON.stringify(op) + "]("
-                + compile(env, node.left) + ", " + compile(env, node.right) + ")";
+                + compile(env, node.left) + "," + compile(env, node.right) + ")";
         }
 
         function compile_stat(env, node) {
@@ -932,40 +982,5 @@ TWEEG = function(){
             throw new Error(msg + " (" + line + ":" + col + ")");
         }
     }
-
-    /* -----[ Das Environment ]----- */
-
-    function Environment(parent) {
-        this.vars = Object.create(parent ? parent.vars : null);
-        this.parent = parent;
-    }
-    Environment.prototype = {
-        extend: function() {
-            return new Environment(this);
-        },
-        lookup: function(name) {
-            var scope = this;
-            while (scope) {
-                if (Object.prototype.hasOwnProperty.call(scope.vars, name))
-                    return scope;
-                scope = scope.parent;
-            }
-        },
-        get: function(name) {
-            if (name in this.vars)
-                return this.vars[name];
-            throw new Error("Undefined variable " + name);
-        },
-        set: function(name, value) {
-            var scope = this.lookup(name);
-            // let's not allow defining globals from a nested environment
-            if (!scope && this.parent)
-                throw new Error("Undefined variable " + name);
-            return (scope || this).vars[name] = value;
-        },
-        def: function(name, value) {
-            return this.vars[name] = value;
-        }
-    };
 
 };

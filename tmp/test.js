@@ -10,7 +10,7 @@ var t = TWEEG().init();
 // console.log(JSON.stringify(ast, null, 2));
 
 
-var tmpl = "<p>{{ maka starts with 'crap' ? 'Yaaaasss' : 'no crap' }}</p>";
+var tmpl = "<p>  {{- maka starts with 'crap' ? 'Yaaaasss' : no_crap(true)|raw -}}  </p>";
 var ast = t.parse(tmpl);
 var code = t.compile(ast);
 

@@ -42,7 +42,9 @@ TWEEG = function(){
     var NODE_NUMBER       = "number";
     var NODE_PUNC         = "punc";
     var NODE_STR          = "string";
-    var NODE_INT_STR      = "interpolated_string";
+    var NODE_INT_STR_BEG  = "intstr_beg";
+    var NODE_INT_STR      = "intstr";
+    var NODE_INT_STR_END  = "intstr_end";
     var NODE_SYMBOL       = "symbol";
     var NODE_COMMENT      = "comment";
 
@@ -60,6 +62,13 @@ TWEEG = function(){
     var NODE_HASH         = "hash";
     var NODE_INDEX        = "index";
     var NODE_STAT         = "stat";
+
+    /* -----[ Lexer modes ]----- */
+
+    var LEX_TEXT        = 1; // normal text mode
+    var LEX_INTERPOL    = 2; // text in interpolated string
+    var LEX_EXPRESSION  = 3; // expression in {{ }} or {% %}
+    var LEX_INT_EXPR    = 4; // expression in #{ } inside interpolated string
 
     /* -----[ core tag parsers ]----- */
 
@@ -331,7 +340,7 @@ TWEEG = function(){
             else if (looking_at(NODE_NUMBER) || looking_at(NODE_STR)) {
                 atom = next();
             }
-            else if (looking_at(NODE_INT_STR)) {
+            else if (looking_at(NODE_INT_STR_BEG)) {
                 atom = parse_interpolated_string();
             }
             else if ((tok = looking_at(NODE_OPERATOR)) && UNARY_OPERATORS[tok.value]) {
@@ -369,6 +378,28 @@ TWEEG = function(){
         }
 
         function parse_interpolated_string() {
+            skip(NODE_INT_STR_BEG);
+            var data = [];
+            while (!looking_at(NODE_INT_STR_END)) {
+                if (looking_at(NODE_INT_STR)) {
+                    var tok = input.next();
+                    if (tok.value.length) {
+                        tok.type = NODE_STR;
+                        data.push(tok);
+                    }
+                } else {
+                    data.push(parse_expression());
+                }
+            }
+            tok = skip(NODE_INT_STR_END);
+            if (tok.value.length) {
+                tok.type = NODE_STR;
+                data.push(tok);
+            }
+            return {
+                type: NODE_INT_STR,
+                data: data
+            };
         }
 
         function parse_array() {
@@ -600,6 +631,9 @@ TWEEG = function(){
 
               case NODE_CALL:
                 return compile_call(env, node);
+
+              case NODE_INT_STR:
+                return compile_interpolated_str(env, node);
             }
 
             throw new Error("Cannot compile node " + JSON.stringify(node));
@@ -654,6 +688,12 @@ TWEEG = function(){
             return "TWEEG_RUNTIME.make_hash([" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
+        }
+
+        function compile_interpolated_str(env, node) {
+            return node.data.map(function(item){
+                return "String(" + compile(env, item) + ")";
+            }).join(" + ");
         }
 
         function compile_symbol(env, node) {
@@ -737,7 +777,7 @@ TWEEG = function(){
     function Lexer(input) {
         input = InputStream(input);
         var peeked = [];
-        var twig_mode = false;
+        var state = [ LEX_TEXT ];
         var current;
         return {
             next  : next,
@@ -746,6 +786,18 @@ TWEEG = function(){
             eof   : eof,
             croak : croak
         };
+
+        function push_state(s) {
+            state.push(s);
+        }
+
+        function pop_state() {
+            state.pop();
+        }
+
+        function mode() {
+            return state[state.length - 1];
+        }
 
         function start_token() {
             current = { loc: input.pos() };
@@ -820,8 +872,12 @@ TWEEG = function(){
         function read_expr_token() {
             var m, ch = input.peek();
             skip_whitespace();
+            if (mode() == LEX_INT_EXPR && input.skip(/^\}/)) {
+                pop_state();
+                return read_interpol_part();
+            }
             if ((m = input.skip(/^(?:-?\%\}|-?\}\})/))) {
-                twig_mode = false;
+                pop_state();
                 var tmp = m[0];
                 if (tmp.charAt(0) == "-") {
                     skip_whitespace();
@@ -848,7 +904,9 @@ TWEEG = function(){
                 return token(NODE_STR, read_escaped("'"));
             }
             if (ch == '"') {
-                return token(NODE_INT_STR, read_escaped('"'));
+                input.next();
+                push_state(LEX_INTERPOL);
+                return token(NODE_INT_STR_BEG);
             }
             if (is_id_start(ch)) {
                 return token(NODE_SYMBOL, read_while(is_id_char));
@@ -856,20 +914,44 @@ TWEEG = function(){
             return croak("Unexpected input in expression");
         }
 
+        function read_interpol_part() {
+            var escaped = false, str = "";
+            while (!input.eof()) {
+                if (escaped) {
+                    str += input.next();
+                    escaped = false;
+                } else if (input.skip(/^\\/)) {
+                    escaped = true;
+                } else if (input.skip(/^\#\{/)) {
+                    push_state(LEX_INT_EXPR);
+                    return token(NODE_INT_STR, str);
+                } else if (input.skip(/^\"/)) {
+                    pop_state();
+                    return token(NODE_INT_STR_END, str);
+                } else {
+                    str += input.next();
+                }
+            }
+            throw new Error("Unfinished interpolated string");
+        }
+
         function read_token() {
+            var m, text;
             if (input.eof()) {
                 return null;
             }
             start_token();
-            if (twig_mode) {
+            if (mode() == LEX_INTERPOL) {
+                return read_interpol_part();
+            }
+            if (mode() >= LEX_EXPRESSION) {
                 skip_whitespace();
                 return read_expr_token();
             }
-            var m, text;
             if ((m = input.skip(/^(\{\{|\{\%|\{#)-?\s*/))) {
                 var tag = m[1];
                 if (tag == "{{") {
-                    twig_mode = true;
+                    push_state(LEX_EXPRESSION);
                     return token(NODE_EXPR_BEG);
                 } else if (tag == "{%") {
                     // handle verbatim blocks here, as if we parse
@@ -892,7 +974,7 @@ TWEEG = function(){
                         }
                         return text ? token(NODE_TEXT, text) : read_token();
                     } else {
-                        twig_mode = true;
+                        push_state(LEX_EXPRESSION);
                         return token(NODE_STAT_BEG);
                     }
                 } else if (tag == "{#") {

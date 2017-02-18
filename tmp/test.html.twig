@@ -25,12 +25,18 @@ Comments are ignored
   {%- endfor %}
 </ul>
 
-{% set aye = "aye" %}
-{% set nope = "nope" %}
+{%- set aye = "aye" %}
+{%- set nope = "nope" %}
 <p>{{ 'foo' not in { foo: 1, bar: 2 } ? "-#{aye}-" : "-#{nope}-" }}</p>
 
-{% for i in 10..1 if (i % 2) is not 0 %}
+{%- for i in 10..1 if (i % 2) is not 0 %}
   <li>{{ i }}</li>
 {% endfor %}
+
+{%- for i in [1, 2, 3, 4, 5] if i > 6 %}
+  <p>HAS {{i}}</p>
+{%- else %}
+  <p>None found</p>
+{%- endfor %}
 
 <p>{{ not not "false" }}</p>

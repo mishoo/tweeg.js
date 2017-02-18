@@ -105,6 +105,11 @@ TWEEG_RUNTIME = (function(){
                     add(data[key], key);
                 });
             }
+            if (!result.length) {
+                // called without parameters will execute the `else`
+                // clause if present
+                result.push(f());
+            }
             return TR.out(result);
         }
     };

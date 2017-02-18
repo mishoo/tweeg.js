@@ -152,8 +152,15 @@ TWEEG = function(){
                 }
                 code += "," + X.compile_sym(env, node.sym) + "){";
                 code += X.output_vars(env.own());
+                code += "if(" + X.mangle_name("loop") + "==null){";
+                if (node.else) {
+                    code += "return " + X.compile(env, node.else);
+                } else {
+                    code += "return ''";
+                }
+                code += "}";
                 if (cond != null) {
-                    code += "if (!" + cond + ") return TR;";
+                    code += "if(!" + cond + ")return TR;";
                 }
                 code += "return " + body + ";})";
                 return code;

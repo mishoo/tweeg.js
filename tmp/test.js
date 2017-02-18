@@ -10,19 +10,19 @@ var t = TWEEG().init();
 var tmpl = fs.readFileSync("./test.html.twig", "utf8");
 var ast = t.parse(tmpl);
 var code = t.compile(ast);
-//console.log(JSON.stringify(ast, null, 2));
+console.log(code);
 var ugly = uglify(code);
 console.log(beautify(ugly));
 
-var func = Function("return " + code)();
+var compiled = new Function("return " + code)()(TWEEG_RUNTIME);
 console.log("---------------------------");
-console.log(func({
+console.log(compiled.$main({
     links: [
         { url: "http://google.com/", title: "Google" },
         { url: "#", title: "BOGUS" },
         { url: "http://lisperator.net/", title: "Lisperator" },
     ]
-}, TWEEG_RUNTIME));
+}));
 
 
 
@@ -43,7 +43,7 @@ function beautify(code) {
 function uglify(code) {
     var ast = u2.parse(code);
     ast.figure_out_scope();
-    ast = ast.transform(u2.Compressor());
+    ast = ast.transform(u2.Compressor({ negate_iife: false }));
     ast.figure_out_scope();
     ast.compute_char_frequency();
     ast.mangle_names();

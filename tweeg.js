@@ -31,6 +31,8 @@ TWEEG = function(){
 
     var RX_OPERATOR;            // populated by `init()`
 
+    var GENSYM = 0;
+
     /* -----[ Token types ]----- */
 
     var NODE_TEXT         = "text";
@@ -144,7 +146,7 @@ TWEEG = function(){
                 var cond = node.cond ? X.compile(env, node.cond) : null;
                 env = env.extend();
                 var body = X.compile(env, node.body);
-                var code = "TR.for(" + data + ","
+                var code = "$TR.for(" + data + ","
                     + "function("
                     + X.compile_sym(env, SYM_LOOP);
                 if (node.sym2) {
@@ -152,7 +154,7 @@ TWEEG = function(){
                 }
                 code += "," + X.compile_sym(env, node.sym) + "){";
                 code += X.output_vars(env.own());
-                code += "if(" + X.mangle_name("loop") + "==null){";
+                code += "if(" + X.output_name("loop") + "==null){";
                 if (node.else) {
                     code += "return " + X.compile(env, node.else);
                 } else {
@@ -160,7 +162,7 @@ TWEEG = function(){
                 }
                 code += "}";
                 if (cond != null) {
-                    code += "if(!" + cond + ")return TR;";
+                    code += "if(!" + cond + ")return $TR;";
                 }
                 code += "return " + body + ";})";
                 return code;
@@ -172,6 +174,9 @@ TWEEG = function(){
                 var node = { expr: X.parse_expression() };
                 X.skip(NODE_STAT_END);
                 return node;
+            },
+            compile: function(env, X, node) {
+                return "(" + X.compile(env, node.expr) + ",'')";
             }
         },
 
@@ -194,7 +199,7 @@ TWEEG = function(){
                 } else {
                     X.skip(NODE_STAT_END);
                     if (defs.length != 1) {
-                        X.croak("`set` without equal must define exactly one variable");
+                        X.croak("`set` with a text block must define exactly one variable");
                     }
                     defs[0].value = X.parse_until(X.end_body_predicate(/^endset$/, true));
                 }
@@ -212,13 +217,37 @@ TWEEG = function(){
         "with": {
             parse: function(X) {
                 var node = {};
-                if (X.looking_at(NODE_SYMBOL, "only")) {
-                    X.next();
-                    node.only = true;
+                function maybe_only() {
+                    if (X.looking_at(NODE_SYMBOL, "only")) {
+                        X.next();
+                        return node.only = true;
+                    }
+                }
+                if (!X.looking_at(NODE_STAT_END)) {
+                    if (!maybe_only()) {
+                        node.expr = X.parse_expression();
+                    }
+                    maybe_only();
                 }
                 X.skip(NODE_STAT_END);
                 node.body = X.parse_until(X.end_body_predicate(/^endwith$/, true));
                 return node;
+            },
+            compile: function(env, X, node) {
+                var expr = node.expr ? X.compile(env, node.expr) : "";
+                env = env.extend();
+                var name = X.gensym();
+                var code = "(function " + name + "(" + name + "){";
+                if (expr) {
+                    code += "with(" + name + ")";
+                }
+                code += "return(" + X.compile(env, node.body);
+                code += ")})";
+                if (node.only) {
+                    X.add_function(name, code);
+                    code = name;
+                }
+                return code + "(" + expr + ")";
             }
         },
 
@@ -285,20 +314,20 @@ TWEEG = function(){
 
     /* -----[ exports ]----- */
 
-    var exports = {
+    var instance = {
         parse   : parse,
         Lexer   : Lexer,
         init    : init,
         compile : compile
     };
-    return exports;
+    return instance;
 
     function init() {
         var rx = "^(?:" + ALL_OPERATORS.sort(function(a, b){
             return b.length - a.length;
         }).map(quote_regexp).join("|") + ")";
         RX_OPERATOR = new RegExp(rx);
-        return exports;
+        return instance;
     }
 
     function quote_regexp(string) {
@@ -382,9 +411,7 @@ TWEEG = function(){
         }
 
         function parse_expression() {
-            return maybe_ternary(
-                maybe_call(
-                    maybe_binary(parse_atom(), 0)));
+            return maybe_ternary(maybe_binary(parse_atom(), 0));
         }
 
         function parse_atom() {
@@ -418,7 +445,11 @@ TWEEG = function(){
             } else {
                 croak("Unexpected token in expression");
             }
-            return maybe_filter(maybe_call(maybe_index(atom)));
+            while (true) {
+                var orig = atom;
+                atom = maybe_filter(maybe_call(maybe_index(atom)));
+                if (atom == orig) return atom;
+            }
         }
 
         function parse_call(func) {
@@ -659,21 +690,45 @@ TWEEG = function(){
             compile_num      : compile_num,
             compile_str      : compile_str,
             output_vars      : output_vars,
-            mangle_name      : mangle_name
+            output_name      : output_name,
+            add_function     : add_function,
+            add_export       : add_export,
+            gensym           : gensym
         };
         var globals = [];
-        return (function(){
+        var functions = [];
+        var output_code = "var $exports = {};";
+        add_export("$main", compile_main());
+        functions.forEach(function(f){
+            output_code += "var " + f.name + " = " + f.code + ";";
+        });
+        output_code += "return $exports";
+        return "function $tweeg($TR) {" + output_code + "}";
+
+        function add_export(name, code) {
+            output_code += "$exports[" + JSON.stringify(name) + "]=" + code + ";";
+        }
+
+        function compile_main() {
             var body = compile(env, node);
-            var code = "function template(DATA, TR){";
-            code += output_vars(env.own());
+            var main = "function template($DATA){";
+            main += output_vars(env.own());
             if (globals.length) {
-                code += "var " + globals.map(function(name){
-                    return mangle_name(name) + "=DATA[" + JSON.stringify(name) + "]";
+                main += "var " + globals.map(function(name){
+                    return output_name(name) + "=$DATA[" + JSON.stringify(name) + "]";
                 }).join(",") + ";";
             }
-            code += "return " + body + "}";
-            return code;
-        })();
+            main += "return " + body + "}";
+            return main;
+        }
+
+        function gensym() {
+            return "$SYM" + (++GENSYM);
+        }
+
+        function add_function(name, code) {
+            functions.push({ name: name, code: code });
+        }
 
         function compile(env, node) {
             // var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
@@ -735,13 +790,13 @@ TWEEG = function(){
         }
 
         function compile_prog(env, node) {
-            return "TR.out([" + node.body.map(function(item){
+            return "$TR.out([" + node.body.map(function(item){
                 return compile(env, item);
             }).join(",") + "])";
         }
 
         function compile_call(env, node) {
-            return "TR.func[" + JSON.stringify(node.func)
+            return "$TR.func[" + JSON.stringify(node.func)
                 + "](" + node.args.map(function(item){
                     return compile(env, item);
                 }).join(",") + ")";
@@ -752,7 +807,7 @@ TWEEG = function(){
         }
 
         function compile_filter(env, node) {
-            var code = "TR.filter[" + JSON.stringify(node.name)
+            var code = "$TR.filter[" + JSON.stringify(node.name)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
                 code += "," + node.args.map(function(item){
@@ -765,13 +820,13 @@ TWEEG = function(){
         function compile_bool(env, node) {
             return node.type == NODE_BOOLEAN
                 ? compile(env, node)
-                : "TR.bool(" + compile(env, node) + ")";
+                : "$TR.bool(" + compile(env, node) + ")";
         }
 
         function compile_num(env, node) {
             return node.type == NODE_NUMBER
                 ? compile(env, node)
-                : "TR.number(" + compile(env, node) + ")";
+                : "$TR.number(" + compile(env, node) + ")";
         }
 
         function compile_str(env, node) {
@@ -793,7 +848,7 @@ TWEEG = function(){
         }
 
         function compile_hash(env, node) {
-            return "TR.make_hash([" + node.data.map(function(item){
+            return "$TR.make_hash([" + node.data.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
         }
@@ -803,11 +858,11 @@ TWEEG = function(){
             if (!env.lookup(name) && globals.indexOf(name) < 0) {
                 globals.push(name);
             }
-            return mangle_name(name);
+            return output_name(name);
         }
 
-        function mangle_name(name) {
-            return "$_" + name;
+        function output_name(name) {
+            return name;
         }
 
         function compile_binary(env, node) {
@@ -879,7 +934,7 @@ TWEEG = function(){
         }
 
         function compile_operator(env, op, node) {
-            return "TR.operator[" + JSON.stringify(op) + "]("
+            return "$TR.operator[" + JSON.stringify(op) + "]("
                 + compile(env, node.left) + "," + compile(env, node.right) + ")";
         }
 
@@ -894,7 +949,7 @@ TWEEG = function(){
         function output_vars(vars) {
             if (vars.length) {
                 return "var " + vars.map(function(name){
-                    return mangle_name(name);
+                    return output_name(name);
                 }) + ";";
             }
             return "";
@@ -940,28 +995,8 @@ TWEEG = function(){
             return current;
         }
 
-        function is_digit(ch) {
-            return /\d/.test(ch);
-        }
-
         function is_punc(ch) {
             return ".,:;(){}[]".indexOf(ch) >= 0;
-        }
-
-        function is_id_start(ch) {
-            return /^[a-z_]$/i.test(ch); // XXX: unicode? anything else?
-        }
-
-        function is_id_char(ch) {
-            return is_id_start(ch) || is_digit(ch);
-        }
-
-        function read_while(predicate) {
-            var str = "";
-            while (!input.eof() && predicate(input.peek())) {
-                str += input.next();
-            }
-            return str;
         }
 
         function skip_whitespace() {
@@ -1037,8 +1072,9 @@ TWEEG = function(){
                 push_state(LEX_INTERPOL);
                 return token(NODE_INT_STR_BEG);
             }
-            if (is_id_start(ch)) {
-                return token(NODE_SYMBOL, read_while(is_id_char));
+            if ((m = input.skip(/^[a-z_][a-z_0-9]*/i))) {
+                // XXX: what are the allowed characters in identifiers?
+                return token(NODE_SYMBOL, m[0]);
             }
             return croak("Unexpected input in expression");
         }

@@ -74,11 +74,6 @@ TWEEG = function(){
 
     /* -----[ core tag parsers ]----- */
 
-    var SYM_LOOP = {
-        type: NODE_SYMBOL,
-        value: "loop"
-    };
-
     var CORE_TAGS = {
         "autoescape": {
             parse: function(X) {
@@ -146,15 +141,15 @@ TWEEG = function(){
                 var cond = node.cond ? X.compile(env, node.cond) : null;
                 env = env.extend();
                 var body = X.compile(env, node.body);
-                var code = "$TR.for(" + data + ","
+                var code = "$FOR(" + data + ","
                     + "function("
-                    + X.compile_sym(env, SYM_LOOP);
+                    + X.output_name("loop");
                 if (node.sym2) {
-                    code += "," + X.compile_sym(env, node.sym2);
+                    code += "," + X.output_name(node.sym2.value);
                 }
-                code += "," + X.compile_sym(env, node.sym) + "){";
+                code += "," + X.output_name(node.sym.value) + "){";
                 code += X.output_vars(env.own());
-                code += "if(" + X.output_name("loop") + "==null){";
+                code += "if(!" + X.output_name("loop") + "){";
                 if (node.else) {
                     code += "return " + X.compile(env, node.else);
                 } else {
@@ -208,7 +203,7 @@ TWEEG = function(){
             compile: function(env, X, node) {
                 return "(" + node.defs.map(function(def){
                     env.set(def.name.value);
-                    return X.compile_sym(env, def.name)
+                    return X.output_name(def.name.value)
                         + "=" + X.compile(env, def.value);
                 }) + ",'')";
             }
@@ -241,7 +236,14 @@ TWEEG = function(){
                 if (expr) {
                     code += "with(" + name + ")";
                 }
-                code += "return(" + X.compile(env, node.body);
+                code += "return(";
+                if (node.only) {
+                    code += X.outside_main(function(){
+                        return X.compile(env, node.body);
+                    });
+                } else {
+                    code += X.compile(env, node.body);
+                }
                 code += ")})";
                 if (node.only) {
                     X.add_function(name, code);
@@ -685,33 +687,49 @@ TWEEG = function(){
         var context = {
             root_env         : env,
             compile          : compile,
-            compile_sym      : compile_sym,
             compile_bool     : compile_bool,
             compile_num      : compile_num,
-            compile_str      : compile_str,
             output_vars      : output_vars,
             output_name      : output_name,
             add_function     : add_function,
             add_export       : add_export,
+            outside_main     : outside_main,
             gensym           : gensym
         };
         var globals = [];
         var functions = [];
-        var output_code = "var $exports = {};";
+        var output_code = "var $exports = {},\
+$OUT = $TR.out,\
+$BOOL = $TR.bool,\
+$NUMBER = $TR.number,\
+$FUNC = $TR.func,\
+$FILTER = $TR.filter,\
+$FOR = $TR.for;";
+        var inside_main = true;
         add_export("$main", compile_main());
         functions.forEach(function(f){
             output_code += "var " + f.name + " = " + f.code + ";";
         });
         output_code += "return $exports";
-        return "function $tweeg($TR) {" + output_code + "}";
+        return "function $tweeg($TR){" + output_code + "}";
 
         function add_export(name, code) {
             output_code += "$exports[" + JSON.stringify(name) + "]=" + code + ";";
         }
 
+        function outside_main(f) {
+            var save = inside_main;
+            inside_main = false;
+            try {
+                return f();
+            } finally {
+                inside_main = save;
+            }
+        }
+
         function compile_main() {
             var body = compile(env, node);
-            var main = "function template($DATA){";
+            var main = "function($DATA){";
             main += output_vars(env.own());
             if (globals.length) {
                 main += "var " + globals.map(function(name){
@@ -790,13 +808,13 @@ TWEEG = function(){
         }
 
         function compile_prog(env, node) {
-            return "$TR.out([" + node.body.map(function(item){
+            return "$OUT([" + node.body.map(function(item){
                 return compile(env, item);
             }).join(",") + "])";
         }
 
         function compile_call(env, node) {
-            return "$TR.func[" + JSON.stringify(node.func)
+            return "$FUNC[" + JSON.stringify(node.func)
                 + "](" + node.args.map(function(item){
                     return compile(env, item);
                 }).join(",") + ")";
@@ -807,7 +825,7 @@ TWEEG = function(){
         }
 
         function compile_filter(env, node) {
-            var code = "$TR.filter[" + JSON.stringify(node.name)
+            var code = "$FILTER[" + JSON.stringify(node.name)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
                 code += "," + node.args.map(function(item){
@@ -820,25 +838,17 @@ TWEEG = function(){
         function compile_bool(env, node) {
             return node.type == NODE_BOOLEAN
                 ? compile(env, node)
-                : "$TR.bool(" + compile(env, node) + ")";
+                : "$BOOL(" + compile(env, node) + ")";
         }
 
         function compile_num(env, node) {
             return node.type == NODE_NUMBER
                 ? compile(env, node)
-                : "$TR.number(" + compile(env, node) + ")";
-        }
-
-        function compile_str(env, node) {
-            return node.type == NODE_STR
-                ? compile(env, node)
-                : "String(" + compile(env, node) + ")";
+                : "$NUMBER(" + compile(env, node) + ")";
         }
 
         function compile_interpolated_str(env, node) {
-            return node.data.map(function(item){
-                return compile_str(env, item);
-            }).join(" + ");
+            return compile_prog(env, { body: node.data });
         }
 
         function compile_array(env, node) {
@@ -855,7 +865,7 @@ TWEEG = function(){
 
         function compile_sym(env, node) {
             var name = node.value;
-            if (!env.lookup(name) && globals.indexOf(name) < 0) {
+            if (inside_main && !env.lookup(name) && globals.indexOf(name) < 0) {
                 globals.push(name);
             }
             return output_name(name);
@@ -899,7 +909,7 @@ TWEEG = function(){
                 return "Math.power(" + compile_num(env, node.left) + "," + compile_num(env, node.right) + ")";
 
               case "~":
-                return compile_str(env, node.left) + "+" + compile_str(env, node.right);
+                return compile_prog(env, { body: [ node.left, node.right ]});
 
               case "not in":
                 return "!" + compile_operator(env, "in", node);

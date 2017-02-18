@@ -43,7 +43,12 @@ function beautify(code) {
 function uglify(code) {
     var ast = u2.parse(code);
     ast.figure_out_scope();
-    ast = ast.transform(u2.Compressor({ negate_iife: false }));
+    ast = ast.transform(u2.Compressor({
+        negate_iife  : false,
+        pure_getters : true,
+        unsafe       : true,
+        unsafe_comps : true
+    }));
     ast.figure_out_scope();
     ast.compute_char_frequency();
     ast.mangle_names();

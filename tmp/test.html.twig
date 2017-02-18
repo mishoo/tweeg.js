@@ -43,3 +43,11 @@ Comments are ignored
 
 {% do 3 + 4 %}
 
+{# with { foo: links[1].url, bar: 2 } %}
+  check {{ foo }} mak
+  {{ links.length }}
+{% endwith #}
+
+{{ "foo" ~ links[2].url }}
+
+{{ "foo #{links[2].url} bar" }}

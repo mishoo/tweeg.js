@@ -404,6 +404,10 @@ TWEEG = function(RUNTIME){
         function parse_next() {
             var tok = peek();
             if (tok.type == NODE_TEXT) {
+                // seems in order to treat plain text as just string
+                // nodes, simplifies some optimization cases in the
+                // compiler
+                tok.type = NODE_STR;
                 return next();
             }
             if (tok.type == NODE_EXPR_BEG) {
@@ -727,7 +731,7 @@ $FOR = $TR.for;";
             output_code += f.code + ";";
         });
         output_code += "return $EXPORTS";
-        return "function T($TR){" + output_code + "}";
+        return "function $TWEEG($TR){" + output_code + "}";
 
         function add_export(name, code) {
             output_code += "$EXPORTS[" + JSON.stringify(name) + "]=" + code + ";";
@@ -773,7 +777,6 @@ $FOR = $TR.for;";
 
         function is_constant(node) {
             switch (node.type) {
-              case NODE_TEXT:
               case NODE_STR:
               case NODE_NUMBER:
               case NODE_BOOLEAN:
@@ -836,24 +839,39 @@ $FOR = $TR.for;";
                     var node = a[i];
                     if (node.type == NODE_PROG) {
                         flatten(node.body);
+                    } else if (node.type == NODE_BINARY && node.operator == "~") {
+                        flatten([ node.left, node.right ]);
                     } else {
                         body.push(node);
-                        if (str != null) {
-                            if (is_constant(node)) {
-                                str += RUNTIME.out(node.value);
-                            } else {
-                                str = null;
-                            }
-                        }
                     }
                 }
             })(node.body, []);
+            for (var i = 0; i < body.length;) {
+                var x = body[i];
+                if (str != null) {
+                    if (is_constant(x)) {
+                        str += RUNTIME.out(x.value);
+                    } else {
+                        str = null;
+                    }
+                }
+                if (is_constant(x) && i && body[i - 1].type == NODE_STR) {
+                    body[i - 1].value += RUNTIME.out(x.value);
+                    body.splice(i, 1);
+                } else {
+                    i++;
+                }
+            }
             if (str != null) {
                 return JSON.stringify(str);
             }
-            return "$OUT([" + body.map(function(item){
-                return compile(env, item);
-            }).join(",") + "])";
+            return "$OUT([" + body.reduce(function(a, item){
+                var code = compile(env, item);
+                if (code && code != "('')" && code != '("")' && code != '(undefined)' && code != '(null)') {
+                    a.push(code);
+                }
+                return a;
+            }, []).join(",") + "])";
         }
 
         function compile_call(env, node) {
@@ -997,7 +1015,7 @@ $FOR = $TR.for;";
             if (!impl || !impl.compile) {
                 throw new Error("Compiler not implemented for `" + node.tag + "`");
             }
-            return impl.compile(env, context, node) || "''";
+            return impl.compile(env, context, node);
         }
 
         function output_vars(vars) {

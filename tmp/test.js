@@ -15,6 +15,7 @@ console.log(code);
 var ugly = uglify(code);
 console.log(beautify(ugly));
 console.log(ugly.length, code.length);
+fs.writeFileSync("/tmp/crap.js", beautify(code), "utf8");
 
 var compiled = new Function("return " + code)()(runtime);
 console.log("---------------------------");

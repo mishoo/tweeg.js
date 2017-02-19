@@ -1,0 +1,7 @@
+{%- macro link(url, text) -%}
+  <a href="{{ url|e }}">{{ text|e }}</a>
+{%- endmacro -%}
+
+<h1>{{ hello }} {{ world }}!</h1>
+
+<p>Check out {{ link("http://github.com/mishoo/tweegjs", "TweegJS") }}</p>

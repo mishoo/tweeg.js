@@ -1,6 +1,15 @@
 TWEEG_RUNTIME = function(){
     "use strict";
 
+    function htmlEscape(str) {
+        return str.replace(/&/g, "&amp;")
+            .replace(/\x22/g, "&quot;")
+            .replace(/\x27/g, "&#x27;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\u00A0/g, "&#xa0;");
+    }
+
     var TR = {
         func: {
 
@@ -9,6 +18,9 @@ TWEEG_RUNTIME = function(){
         filter: {
             json_encode: function(val, indent) {
                 return JSON.stringify(val, null, indent);
+            },
+            e: function(text) {
+                return htmlEscape(text);
             }
         },
 

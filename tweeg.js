@@ -105,7 +105,7 @@ TWEEG = function(RUNTIME){
                 var condition = X.compile_bool(env, node.cond);
                 var true_branch = X.compile(env, node.then);
                 var else_branch = node.else && X.compile(env, node.else);
-                return condition + "?" + true_branch + ":" + (else_branch || "");
+                return condition + "?" + true_branch + ":" + (else_branch || "''");
             }
         },
 
@@ -153,7 +153,7 @@ TWEEG = function(RUNTIME){
                 if (node.else) {
                     code += "return " + X.compile(env, node.else);
                 } else {
-                    code += "return ''";
+                    code += "return''";
                 }
                 code += "}";
                 if (cond != null) {
@@ -260,7 +260,14 @@ TWEEG = function(RUNTIME){
                     return X.skip(NODE_SYMBOL);
                 });
                 X.skip(NODE_STAT_END);
-                node.body = X.parse_until(X.end_body_predicate(/^endmacro$/, true));
+                node.body = X.parse_until(X.end_body_predicate(/^endmacro$/));
+                X.skip(NODE_SYMBOL);
+                if (X.looking_at(NODE_SYMBOL)) {
+                    if (X.next().value != node.name.value) {
+                        X.croak("Wrong name in endmacro");
+                    }
+                }
+                X.skip(NODE_STAT_END);
                 return node;
             },
             compile: function(env, X, node) {
@@ -463,7 +470,8 @@ TWEEG = function(RUNTIME){
                     operator: next().value,
                     expr: parse_atom()
                 };
-            } else {
+            }
+            else {
                 croak("Unexpected token in expression");
             }
             while (true) {
@@ -717,14 +725,14 @@ TWEEG = function(RUNTIME){
         };
         var globals = [];
         var functions = [];
-        var output_code = "var  \
-$EXPORTS = {},                  \
-$OUT = $TR.out,                 \
-$BOOL = $TR.bool,               \
-$NUMBER = $TR.number,           \
-$FUNC = $TR.func,               \
-$OP = $TR.operator,             \
-$FILTER = $TR.filter,           \
+        var output_code = "var \
+$EXPORTS = {},\
+$OUT = $TR.out,\
+$BOOL = $TR.bool,\
+$NUMBER = $TR.number,\
+$FUNC = $TR.func,\
+$OP = $TR.operator,\
+$FILTER = $TR.filter,\
 $FOR = $TR.for;";
         var inside_main = true;
         add_export("$main", compile_main());

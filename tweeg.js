@@ -270,6 +270,7 @@ TWEEG = function(RUNTIME){
                     + "(" + args.map(X.output_name).join(",") + "){";
                 X.root_env.def(name, node);
                 env = X.root_env.extend.apply(X.root_env, args);
+                env = env.extend();
                 var body = X.outside_main(function(){
                     return X.compile(env, node.body);
                 });

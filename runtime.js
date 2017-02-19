@@ -82,11 +82,16 @@ TWEEG_RUNTIME = function(){
             var ret = "";
             for (var i = 0; i < data.length; ++i) {
                 var el = data[i];
+                // let's mimic PHP behavior as best as we can
                 if (el === true) {
                     ret += "1";
                 } else {
                     if (el != null && el !== false) {
-                        ret += el;
+                        if (typeof el == "object") {
+                            ret += "Array";
+                        } else {
+                            ret += el;
+                        }
                     }
                 }
             }

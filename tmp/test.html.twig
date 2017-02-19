@@ -1,10 +1,10 @@
 <ul>
-  {%- for link in links if link.url is not "#" %}
+  {% for link in links if link.url is not "#" %}
     <li>
-      {%- set title, url = link.title, link.url %}
+      {% set title, url = link.title, link.url %}
       <a href="{{ url }}" title="{{ title }}">{{ link.text }}</a>
     </li>
-  {%- endfor %}
+  {% endfor %}
 </ul>
 
 <h2>Test `loop` variable; nested loops</h2>{#
@@ -12,34 +12,40 @@
 Comments are ignored
 
 #}<ul>
-  {%- for link in links %}
+  {% for link in links %}
     <li>
-      {%- set title, url = link.title, link.url %}
+      {% set title, url = link.title, link.url %}
       {{ loop.index }}. <a href="{{ url }}" title="{{ title }}">{{ link.text }}</a>
       first: {{ loop.first }}, last: {{ loop.last }}, revindex: {{ loop.revindex }}, revindex0: {{ loop.revindex0 }}
       Looping through it {{ link|json_encode }}
-      {%- for key, val in link %}
+      {% for key, val in link %}
         {{ key }} => {{ val|json_encode }}
-      {%- endfor %}
+      {% endfor %}
     </li>
-  {%- endfor %}
+  {% endfor %}
 </ul>
 
-{%- set aye = "aye" %}
-{%- set nope = "nope" %}
+{% set aye = "aye" %}
+{% set nope = "nope" %}
 <p>{{ 'foo' not in { foo: 1, bar: 2 } ? "-#{aye}-" : "-#{nope}-" }}</p>
 
-{%- for i in 10..1 if (i % 2) is not 0 %}
+{% macro link(url, text) %}
+  <a href="{{ url }}">{{ text }}</a>
+{% endmacro %}
+
+{% for i in 10..1 if (i % 2) is not 0 %}
   <li>{{ i }}</li>
 {% endfor %}
 
-{%- for i in [1, 2, 3, 4, 5] if i > 6 %}
+{% for i in [1, 2, 3, 4, 5] if i > 6 %}
   <p>HAS {{i}}</p>
-{%- else %}
+{% else %}
   <p>None found</p>
 {%- endfor %}
 
 <p>{{ not not "false" }}</p>
+
+{{ link("http://bar.com/", "bar" ) }}
 
 {% do 3 + 4 %}
 

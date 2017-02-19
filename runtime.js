@@ -1,5 +1,9 @@
 TWEEG_RUNTIME = (function(){
     var TR = {
+        func: {
+
+        },
+
         filter: {
             json_encode: function(val, indent) {
                 return JSON.stringify(val, null, indent);
@@ -47,7 +51,13 @@ TWEEG_RUNTIME = (function(){
         },
 
         bool: function(val) {
-            return !!val;       // XXX: there are some twig particularities here
+            if (Array.isArray(val)) {
+                return !!val.length;
+            }
+            if (val === "0") {
+                return false;
+            }
+            return !!val;
         },
 
         number: function(val) {

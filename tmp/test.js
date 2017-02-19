@@ -13,6 +13,7 @@ var code = t.compile(ast);
 console.log(code);
 var ugly = uglify(code);
 console.log(beautify(ugly));
+console.log(ugly.length, code.length);
 
 var compiled = new Function("return " + code)()(TWEEG_RUNTIME);
 console.log("---------------------------");

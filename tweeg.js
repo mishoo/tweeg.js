@@ -230,7 +230,6 @@ TWEEG = function(){
             },
             compile: function(env, X, node) {
                 var expr = node.expr ? X.compile(env, node.expr) : "";
-                env = env.extend();
                 var name = X.gensym();
                 var code = "(function " + name + "(" + name + "){";
                 if (expr) {
@@ -239,10 +238,10 @@ TWEEG = function(){
                 code += "return(";
                 if (node.only) {
                     code += X.outside_main(function(){
-                        return X.compile(env, node.body);
+                        return X.compile(X.root_env.extend(), node.body);
                     });
                 } else {
-                    code += X.compile(env, node.body);
+                    code += X.compile(env.extend(), node.body);
                 }
                 code += ")})";
                 if (node.only) {
@@ -263,6 +262,21 @@ TWEEG = function(){
                 X.skip(NODE_STAT_END);
                 node.body = X.parse_until(X.end_body_predicate(/^endmacro$/, true));
                 return node;
+            },
+            compile: function(env, X, node) {
+                var name = node.name.value;
+                var args = node.vars.map(function(tok){ return tok.value });
+                var code = "function " + X.output_name(name)
+                    + "(" + args.map(X.output_name).join(",") + "){";
+                X.root_env.def(name, node);
+                env = X.root_env.extend.apply(X.root_env, args);
+                var body = X.outside_main(function(){
+                    return X.compile(env, node.body);
+                });
+                code += X.output_vars(env.own());
+                code += "return " + body + "}";
+                X.add_function(X.output_name(node.name.value), code);
+                X.add_export(node.name.value, X.output_name(node.name.value));
             }
         },
 
@@ -481,40 +495,40 @@ TWEEG = function(){
 
         function parse_interpolated_string() {
             skip(NODE_INT_STR_BEG);
-            var data = [];
+            var body = [];
             while (!looking_at(NODE_INT_STR_END)) {
                 if (looking_at(NODE_INT_STR)) {
                     var tok = input.next();
                     if (tok.value.length) {
                         tok.type = NODE_STR;
-                        data.push(tok);
+                        body.push(tok);
                     }
                 } else {
-                    data.push(parse_expression());
+                    body.push(parse_expression());
                 }
             }
             tok = skip(NODE_INT_STR_END);
-            if (tok.value.length || !data.length) {
+            if (tok.value.length || !body.length) {
                 tok.type = NODE_STR;
-                data.push(tok);
+                body.push(tok);
             }
             return {
-                type: NODE_INT_STR,
-                data: data
+                type: NODE_PROG,
+                body: body
             };
         }
 
         function parse_array() {
             return {
                 type: NODE_ARRAY,
-                data: delimited("[", "]", ",", parse_expression)
+                body: delimited("[", "]", ",", parse_expression)
             };
         }
 
         function parse_hash() {
             return {
                 type: NODE_HASH,
-                data: delimited("{", "}", ",", parse_hash_entry)
+                body: delimited("{", "}", ",", parse_hash_entry)
             };
         }
 
@@ -698,7 +712,8 @@ TWEEG = function(){
         };
         var globals = [];
         var functions = [];
-        var output_code = "var $exports = {},\
+        var output_code = "var \
+$EXPORTS = {},\
 $OUT = $TR.out,\
 $BOOL = $TR.bool,\
 $NUMBER = $TR.number,\
@@ -708,13 +723,13 @@ $FOR = $TR.for;";
         var inside_main = true;
         add_export("$main", compile_main());
         functions.forEach(function(f){
-            output_code += "var " + f.name + " = " + f.code + ";";
+            output_code += f.code + ";";
         });
-        output_code += "return $exports";
-        return "function $tweeg($TR){" + output_code + "}";
+        output_code += "return $EXPORTS";
+        return "function T($TR){" + output_code + "}";
 
         function add_export(name, code) {
-            output_code += "$exports[" + JSON.stringify(name) + "]=" + code + ";";
+            output_code += "$EXPORTS[" + JSON.stringify(name) + "]=" + code + ";";
         }
 
         function outside_main(f) {
@@ -728,6 +743,7 @@ $FOR = $TR.for;";
         }
 
         function compile_main() {
+            env = env.extend();
             var body = compile(env, node);
             var main = "function($DATA){";
             main += output_vars(env.own());
@@ -795,9 +811,6 @@ $FOR = $TR.for;";
 
               case NODE_CALL:
                 return compile_call(env, node);
-
-              case NODE_INT_STR:
-                return compile_interpolated_str(env, node);
             }
 
             throw new Error("Cannot compile node " + JSON.stringify(node));
@@ -808,16 +821,43 @@ $FOR = $TR.for;";
         }
 
         function compile_prog(env, node) {
+            // // if it's just constants, let's build the string at compile-time
+            // XXX: we're still gonna do it, but let's optimize later.
+            //      we want to be careful about how Twig outputs undefined/booleans
+            // var str = "";
+            // OUT: for (var i = 0; i < node.body.length; ++i) {
+            //     var x = node.body[i];
+            //     switch (x.type) {
+            //       case NODE_TEXT:
+            //       case NODE_STR:
+            //       case NODE_NUMBER:
+            //       case NODE_BOOLEAN:
+            //       case NODE_NULL:
+            //         str += x.value;
+            //         break;
+            //       default:
+            //         str = null;
+            //         break OUT;
+            //     }
+            // }
+            // if (str != null) {
+            //     return JSON.stringify(str);
+            // }
             return "$OUT([" + node.body.map(function(item){
                 return compile(env, item);
             }).join(",") + "])";
         }
 
         function compile_call(env, node) {
-            return "$FUNC[" + JSON.stringify(node.func)
-                + "](" + node.args.map(function(item){
-                    return compile(env, item);
-                }).join(",") + ")";
+            var args = "(" + node.args.map(function(item){
+                return compile(env, item);
+            }).join(",") + ")";
+            var def = env.get(node.func);
+            if (def && def.type == NODE_STAT && def.tag == "macro") {
+                return output_name(node.func) + args;
+            } else {
+                return "$FUNC[" + JSON.stringify(node.func) + "]" + args;
+            }
         }
 
         function compile_index(env, node) {
@@ -847,18 +887,14 @@ $FOR = $TR.for;";
                 : "$NUMBER(" + compile(env, node) + ")";
         }
 
-        function compile_interpolated_str(env, node) {
-            return compile_prog(env, { body: node.data });
-        }
-
         function compile_array(env, node) {
-            return "[" + node.data.map(function(item){
+            return "[" + node.body.map(function(item){
                 return compile(env, item);
             }).join(",") + "]";
         }
 
         function compile_hash(env, node) {
-            return "$TR.make_hash([" + node.data.map(function(item){
+            return "$TR.make_hash([" + node.body.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
         }
@@ -953,7 +989,7 @@ $FOR = $TR.for;";
             if (!impl || !impl.compile) {
                 throw new Error("Compiler not implemented for `" + node.tag + "`");
             }
-            return impl.compile(env, context, node);
+            return impl.compile(env, context, node) || "''";
         }
 
         function output_vars(vars) {

@@ -829,27 +829,24 @@ $FOR = $TR.for;";
 
         function compile_prog(env, node) {
             // un-nest embedded prog-s
-            var body = (function flatten(a, ret){
+            var str = "", body = [];
+            (function flatten(a){
                 for (var i = 0; i < a.length; ++i) {
                     var node = a[i];
                     if (node.type == NODE_PROG) {
-                        flatten(node.body, ret);
+                        flatten(node.body);
                     } else {
-                        ret.push(node);
+                        body.push(node);
+                        if (str != null) {
+                            if (is_constant(node)) {
+                                str += RUNTIME.out(node.value);
+                            } else {
+                                str = null;
+                            }
+                        }
                     }
                 }
-                return ret;
             })(node.body, []);
-            // if it's just constants, let's build the string at compile-time
-            for (var i = 0, str = ""; i < body.length; ++i) {
-                var x = body[i];
-                if (is_constant(x)) {
-                    str += RUNTIME.out(x.value);
-                } else {
-                    str = null;
-                    break;
-                }
-            }
             if (str != null) {
                 return JSON.stringify(str);
             }

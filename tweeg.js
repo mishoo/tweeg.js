@@ -1,4 +1,4 @@
-TWEEG = function(){
+TWEEG = function(RUNTIME){
 
     "use strict";
 
@@ -770,15 +770,22 @@ $FOR = $TR.for;";
             return parens(loc + _compile(env, node));
         }
 
-        function _compile(env, node) {
+        function is_constant(node) {
             switch (node.type) {
               case NODE_TEXT:
               case NODE_STR:
               case NODE_NUMBER:
               case NODE_BOOLEAN:
               case NODE_NULL:
-                return JSON.stringify(node.value);
+                return true;
+            }
+        }
 
+        function _compile(env, node) {
+            if (is_constant(node)) {
+                return JSON.stringify(node.value);
+            }
+            switch (node.type) {
               case NODE_PROG:
                 return compile_prog(env, node);
 
@@ -821,29 +828,32 @@ $FOR = $TR.for;";
         }
 
         function compile_prog(env, node) {
-            // // if it's just constants, let's build the string at compile-time
-            // XXX: we're still gonna do it, but let's optimize later.
-            //      we want to be careful about how Twig outputs undefined/booleans
-            // var str = "";
-            // OUT: for (var i = 0; i < node.body.length; ++i) {
-            //     var x = node.body[i];
-            //     switch (x.type) {
-            //       case NODE_TEXT:
-            //       case NODE_STR:
-            //       case NODE_NUMBER:
-            //       case NODE_BOOLEAN:
-            //       case NODE_NULL:
-            //         str += x.value;
-            //         break;
-            //       default:
-            //         str = null;
-            //         break OUT;
-            //     }
-            // }
-            // if (str != null) {
-            //     return JSON.stringify(str);
-            // }
-            return "$OUT([" + node.body.map(function(item){
+            // un-nest embedded prog-s
+            var body = (function flatten(a, ret){
+                for (var i = 0; i < a.length; ++i) {
+                    var node = a[i];
+                    if (node.type == NODE_PROG) {
+                        flatten(node.body, ret);
+                    } else {
+                        ret.push(node);
+                    }
+                }
+                return ret;
+            })(node.body, []);
+            // if it's just constants, let's build the string at compile-time
+            for (var i = 0, str = ""; i < body.length; ++i) {
+                var x = body[i];
+                if (is_constant(x)) {
+                    str += RUNTIME.out(x.value);
+                } else {
+                    str = null;
+                    break;
+                }
+            }
+            if (str != null) {
+                return JSON.stringify(str);
+            }
+            return "$OUT([" + body.map(function(item){
                 return compile(env, item);
             }).join(",") + "])";
         }

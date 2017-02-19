@@ -1,4 +1,6 @@
-TWEEG_RUNTIME = (function(){
+TWEEG_RUNTIME = function(){
+    "use strict";
+
     var TR = {
         func: {
 
@@ -30,7 +32,7 @@ TWEEG_RUNTIME = (function(){
                 return pos + x.length == str.length;
             },
             "..": function(beg, end) {
-                var i;
+                var i, a;
                 if (end >= beg) {
                     for (i = beg, a = []; i <= end; ++i) {
                         a.push(i);
@@ -77,7 +79,18 @@ TWEEG_RUNTIME = (function(){
         },
 
         out: function(data) {
-            return data.join(""); // XXX: autoescape!
+            var ret = "";
+            for (var i = 0; i < data.length; ++i) {
+                var el = data[i];
+                if (el === true) {
+                    ret += "1";
+                } else {
+                    if (el != null && el !== false) {
+                        ret += el;
+                    }
+                }
+            }
+            return ret;
         },
 
         for: function(data, f) {
@@ -123,5 +136,6 @@ TWEEG_RUNTIME = (function(){
             return TR.out(result);
         }
     };
+
     return TR;
-})();
+};

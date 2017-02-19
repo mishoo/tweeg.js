@@ -5,7 +5,8 @@ var u2 = require("uglify-js");
 
 require("../tweeg.js");
 require("../runtime.js");
-var t = TWEEG().init();
+var runtime = TWEEG_RUNTIME();
+var t = TWEEG(runtime).init();
 
 var tmpl = fs.readFileSync("./test.html.twig", "utf8");
 var ast = t.parse(tmpl);
@@ -15,7 +16,7 @@ var ugly = uglify(code);
 console.log(beautify(ugly));
 console.log(ugly.length, code.length);
 
-var compiled = new Function("return " + code)()(TWEEG_RUNTIME);
+var compiled = new Function("return " + code)()(runtime);
 console.log("---------------------------");
 console.log(compiled.$main({
     links: [

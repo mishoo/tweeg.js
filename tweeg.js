@@ -717,13 +717,14 @@ TWEEG = function(RUNTIME){
         };
         var globals = [];
         var functions = [];
-        var output_code = "var \
-$EXPORTS = {},\
-$OUT = $TR.out,\
-$BOOL = $TR.bool,\
-$NUMBER = $TR.number,\
-$FUNC = $TR.func,\
-$FILTER = $TR.filter,\
+        var output_code = "var  \
+$EXPORTS = {},                  \
+$OUT = $TR.out,                 \
+$BOOL = $TR.bool,               \
+$NUMBER = $TR.number,           \
+$FUNC = $TR.func,               \
+$OP = $TR.operator,             \
+$FILTER = $TR.filter,           \
 $FOR = $TR.for;";
         var inside_main = true;
         add_export("$main", compile_main());
@@ -920,6 +921,19 @@ $FOR = $TR.for;";
         }
 
         function compile_hash(env, node) {
+            var constant_keys = true;
+            for (var i = 0; i < node.body.length; ++i) {
+                var item = node.body[i];
+                if (!is_constant(item.key)) {
+                    constant_keys = false;
+                    break;
+                }
+            }
+            if (constant_keys) {
+                return "{" + node.body.map(function(item){
+                    return JSON.stringify(item.key.value) + ":" + compile(env, item.value);
+                }).join(",") + "}";
+            }
             return "$TR.make_hash([" + node.body.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
@@ -1006,7 +1020,7 @@ $FOR = $TR.for;";
         }
 
         function compile_operator(env, op, node) {
-            return "$TR.operator[" + JSON.stringify(op) + "]("
+            return "$OP[" + JSON.stringify(op) + "]("
                 + compile(env, node.left) + "," + compile(env, node.right) + ")";
         }
 

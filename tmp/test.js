@@ -8,7 +8,7 @@ require("../runtime.js");
 var runtime = TWEEG_RUNTIME();
 var t = TWEEG(runtime).init();
 
-var tmpl = fs.readFileSync("./hw.html.twig", "utf8");
+var tmpl = fs.readFileSync("./test.html.twig", "utf8");
 var ast = t.parse(tmpl);
 var code = t.compile(ast);
 console.log(code);

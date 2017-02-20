@@ -52,7 +52,8 @@ function uglify(code) {
         negate_iife  : false,
         pure_getters : true,
         unsafe       : true,
-        unsafe_comps : true
+        unsafe_comps : true,
+        sequences    : false
     }));
     ast.figure_out_scope();
     ast.compute_char_frequency();

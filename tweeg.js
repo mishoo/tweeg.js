@@ -275,7 +275,6 @@ TWEEG = function(RUNTIME){
                 var args = node.vars.map(function(tok){ return tok.value });
                 var code = "function " + X.output_name(name)
                     + "(" + args.map(X.output_name).join(",") + "){";
-                X.root_env.def(name, node);
                 env = X.root_env.extend.apply(X.root_env, args);
                 env = env.extend();
                 var body = X.outside_main(function(){
@@ -283,8 +282,7 @@ TWEEG = function(RUNTIME){
                 });
                 code += X.output_vars(env.own());
                 code += "return " + body + "}";
-                X.add_function(X.output_name(node.name.value), code);
-                X.add_export(node.name.value, X.output_name(node.name.value));
+                X.add_export(node.name.value, code);
             }
         },
 
@@ -482,12 +480,9 @@ TWEEG = function(RUNTIME){
         }
 
         function parse_call(func) {
-            if (func.type != NODE_SYMBOL) {
-                croak("Unexpected function call");
-            }
             return {
                 type: NODE_CALL,
-                func: func.value,
+                func: func,
                 args: delimited("(", ")", ",", parse_expression)
             };
         }
@@ -726,7 +721,7 @@ TWEEG = function(RUNTIME){
         var globals = [];
         var functions = [];
         var output_code = "var \
-$EXPORTS = {},\
+_self = {},\
 $OUT = $TR.out,\
 $BOOL = $TR.bool,\
 $NUMBER = $TR.number,\
@@ -739,11 +734,11 @@ $FOR = $TR.for;";
         functions.forEach(function(f){
             output_code += f.code + ";";
         });
-        output_code += "return $EXPORTS";
+        output_code += "return _self";
         return "function $TWEEG($TR){" + output_code + "}";
 
         function add_export(name, code) {
-            output_code += "$EXPORTS[" + JSON.stringify(name) + "]=" + code + ";";
+            output_code += "_self[" + JSON.stringify(name) + "]=" + code + ";";
         }
 
         function outside_main(f) {
@@ -762,9 +757,12 @@ $FOR = $TR.for;";
             var main = "function($DATA){";
             main += output_vars(env.own());
             if (globals.length) {
-                main += "var " + globals.map(function(name){
-                    return output_name(name) + "=$DATA[" + JSON.stringify(name) + "]";
-                }).join(",") + ";";
+                main += "var " + globals.reduce(function(a, name){
+                    if (!/^(?:_self|_context)$/.test(name)) {
+                        a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
+                    }
+                    return a;
+                }, []).join(",") + ";";
             }
             main += "return " + body + "}";
             return main;
@@ -887,12 +885,13 @@ $FOR = $TR.for;";
             var args = "(" + node.args.map(function(item){
                 return compile(env, item);
             }).join(",") + ")";
-            var def = env.get(node.func);
-            if (def && def.type == NODE_STAT && def.tag == "macro") {
-                return output_name(node.func) + args;
-            } else {
-                return "$FUNC[" + JSON.stringify(node.func) + "]" + args;
+            if (node.func.type == NODE_SYMBOL) {
+                if (env.lookup(node.func.value)) {
+                    return compile(env, node.func) + args;
+                }
+                return "$FUNC[" + JSON.stringify(node.func.value) + "]" + args;
             }
+            return compile(env, node.func) + args;
         }
 
         function compile_index(env, node) {

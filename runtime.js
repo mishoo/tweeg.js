@@ -12,7 +12,9 @@ TWEEG_RUNTIME = function(){
 
     var TR = {
         func: {
-
+            cycle: function(array, index) {
+                return array[index % array.length];
+            }
         },
 
         filter: {

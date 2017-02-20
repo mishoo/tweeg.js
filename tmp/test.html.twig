@@ -45,7 +45,7 @@ Comments are ignored
 
 <p>{{ not not "false" }}</p>
 
-{{ link("http://bar.com/", "bar" ) }}
+{{ _self.link("http://bar.com/", "bar" ) }}
 
 {{ links }}
 
@@ -59,3 +59,5 @@ Comments are ignored
 {{ "foo" ~ links[2].url }}
 
 {{ "foo #{links[2].url} bar" }}
+
+{{ cycle(1..3, 5) }}

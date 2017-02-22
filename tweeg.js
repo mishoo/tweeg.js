@@ -29,6 +29,8 @@ TWEEG = function(RUNTIME){
 
     var RX_WHITESPACE = /^[ \u00a0\n\r\t\f\u000b\u200b\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\uFEFF]+/;
 
+    var RX_TEST_OPS = /^(?:constant|defined|divisible|empty|even|iterable|null|odd|same)$/;
+
     var RX_OPERATOR;            // populated by `init()`
 
     var GENSYM = 0;
@@ -64,6 +66,7 @@ TWEEG = function(RUNTIME){
     var NODE_HASH         = "hash";
     var NODE_INDEX        = "index";
     var NODE_STAT         = "stat";
+    var NODE_TEST_OP      = "test_op";
 
     /* -----[ Lexer modes ]----- */
 
@@ -353,7 +356,8 @@ TWEEG = function(RUNTIME){
     }
 
     function quote_regexp(string) {
-        var rx = string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        var rx = string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+            .replace(/\s+/g, "\\s+");
         if (/[a-z]$/i.test(string)) {
             rx += "\\b";
         }
@@ -580,6 +584,27 @@ TWEEG = function(RUNTIME){
             };
         }
 
+        function parse_test_op() {
+            var tok = next();
+            var node = {
+                type: NODE_TEST_OP,
+                operator: tok.value
+            };
+            switch (tok.value) {
+              case "constant":
+                throw new Error("TweegJS does not support `constant` test");
+              case "divisible":
+                skip(NODE_SYMBOL, "by");
+                node.expr = parse_atom();
+                break;
+              case "same":
+                skip(NODE_SYMBOL, "as");
+                node.expr = parse_atom();
+                break;
+            }
+            return node;
+        }
+
         /* -----[ the "maybe" functions ]----- */
 
         function maybe_binary(left, my_prec) {
@@ -588,6 +613,20 @@ TWEEG = function(RUNTIME){
                 var his_prec = BINARY_OPERATORS[tok.value];
                 if (his_prec > my_prec) {
                     next();
+                    if (tok.value == "is" || tok.value == "is not") {
+                        // XXX: handle Twig tests: constant, defined,
+                        // divisible by(..), empty, even, iterable,
+                        // null, odd, same as(..)
+                        var right = peek();
+                        if (right.type == NODE_SYMBOL && RX_TEST_OPS.test(right.value)) {
+                            return maybe_binary({
+                                type     : NODE_BINARY,
+                                operator : tok.value,
+                                left     : left,
+                                right    : parse_test_op()
+                            }, my_prec);
+                        }
+                    }
                     return maybe_binary({
                         type     : NODE_BINARY,
                         operator : tok.value,
@@ -728,6 +767,8 @@ $NUMBER = $TR.number,\
 $FUNC = $TR.func,\
 $OP = $TR.operator,\
 $FILTER = $TR.filter,\
+$EMPTY = $TR.empty,\
+$ITERABLE = $TR.iterable,\
 $FOR = $TR.for;";
         var inside_main = true;
         add_export("$main", compile_main());
@@ -986,7 +1027,7 @@ $FOR = $TR.for;";
                 return compile_num(env, node.left) + op + compile_num(env, node.right);
 
               case "//":
-                return "(" + compile_num(env, node.left) + "/" + compile_num(env, node.right) + ")|0";
+                return "Math.round(" + compile_num(env, node.left) + "/" + compile_num(env, node.right) + ")";
 
               case "**":
                 return "Math.power(" + compile_num(env, node.left) + "," + compile_num(env, node.right) + ")";
@@ -998,10 +1039,10 @@ $FOR = $TR.for;";
                 return "!" + compile_operator(env, "in", node);
 
               case "is":
-                return compile(env, node.left) + "===" + compile(env, node.right);
+                return compile_is(env, node);
 
               case "is not":
-                return compile(env, node.left) + "!==" + compile(env, node.right);
+                return "!" + compile_is(env, node);
 
               case "matches":
               case "starts with":
@@ -1012,6 +1053,32 @@ $FOR = $TR.for;";
             }
 
             throw new Error("Unknown operator " + op);
+        }
+
+        function compile_is(env, node) {
+            var left = compile(env, node.left);
+            if (node.right.type == NODE_TEST_OP) {
+                switch (node.right.operator) {
+                  case "defined":
+                    return parens("typeof " + left + " != 'undefined'");
+                  case "divisible":
+                    return parens(left + "%" + compile(env, node.right.expr) + " == 0");
+                  case "empty":
+                    return "$EMPTY(" + left + ")";
+                  case "even":
+                    return parens(left + "%2==0");
+                  case "odd":
+                    return parens(left + "%2!=0");
+                  case "iterable":
+                    return "$ITERABLE(" + left + ")";
+                  case "null":
+                    return parens(left, "==null");
+                  case "same":
+                    return parens(left + "===" + compile(env, node.right.expr));
+                }
+            } else {
+                return parens(left + "===" + compile(env, node.right));
+            }
         }
 
         function compile_unary(env, node) {
@@ -1146,7 +1213,7 @@ $FOR = $TR.for;";
                 return null;
             }
             if ((m = input.skip(RX_OPERATOR))) {
-                return token(NODE_OPERATOR, m[0]);
+                return token(NODE_OPERATOR, m[0].replace(/\s+/, " "));
             }
             if ((m = input.skip(/^0x([0-9a-fA-F]+)/))) {
                 return token(NODE_NUMBER, parseInt(m[1], 16));

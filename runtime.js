@@ -153,6 +153,28 @@ TWEEG_RUNTIME = function(){
                 result.push(f());
             }
             return TR.out(result);
+        },
+
+        empty: function(val) {
+            if (val == "" || val == null || val === false) {
+                return true;
+            }
+            if (Array.isArray(val)) {
+                return !val.length;
+            }
+            if (typeof val == "object") {
+                for (var i in val) {
+                    if (Object.prototype.hasOwnProperty.call(val, i))
+                        return false;
+                }
+                return true;
+            }
+            return false;
+        },
+
+        iterable: function(val) {
+            // this covers arrays as well
+            return val != null && typeof val == "object";
         }
     };
 

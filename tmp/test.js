@@ -13,7 +13,7 @@ var ast = t.parse(tmpl);
 var code = t.compile(ast);
 console.log(code);
 var ugly = uglify(code);
-console.log(beautify(ugly));
+console.log(beautify(code));
 console.log(ugly.length, code.length);
 fs.writeFileSync("/tmp/crap.js", beautify(code), "utf8");
 

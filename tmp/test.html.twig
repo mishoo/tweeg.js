@@ -61,3 +61,13 @@ Comments are ignored
 {{ "foo #{links[2].url} bar" }}
 
 {{ cycle(1..3, 5) }}
+
+{% if blerg is not defined %}
+  no `blerg`
+{% endif %}
+
+{{ -20 // 7 }}
+
+{% if 9 is divisible by(3) %}
+  YAAAAAAAAAS
+{% endif %}

@@ -99,10 +99,12 @@ TWEEG_RUNTIME = function(){
         operator: {
             "matches": function(str, rx) {
                 var m = /^\/(.*)\/([igmsy])?$/.exec(rx);
-                if (!m) {
-                    throw new Error("Invalid regular expression: " + rx);
+                if (m) {
+                    try {
+                        return new RegExp(m[1], m[2]).exec(str);
+                    } catch(ex) {};
                 }
-                return new RegExp(m[1], m[2]).exec(str);
+                throw new Error("Invalid regular expression: " + rx);
             },
             "starts with": function(str, x) {
                 str = String(str);

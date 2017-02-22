@@ -41,12 +41,14 @@ TWEEG_RUNTIME = function(){
             switch (strategy) {
               case "html":
               case undefined:
+              case null:
                 return htmlEscape(str);
               case "js":
                 return jsEscape(str);
               case false:
                 return str;
             }
+            throw new Error("Unknown escape strategy: " + strategy);
         }
         return str;
     }

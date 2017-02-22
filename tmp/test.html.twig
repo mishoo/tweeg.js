@@ -52,8 +52,8 @@ Comments are ignored
 {% do 3 + 4 %}
 
 {# with { foo: links[1].url, bar: 2 } %}
-  check {{ foo }} mak
-  {{ links.length }}
+check {{ foo }} mak
+{{ links.length }}
 {% endwith #}
 
 {{ "foo" ~ links[2].url }}
@@ -76,3 +76,8 @@ Comments are ignored
 {% autoescape false %}
   {{ crap }}
 {% endautoescape %}
+
+{{ "<b>" }}
+{{ "<b>#{crap}</b>" }}
+{{ '<b>' ~ crap ~ '</b>' }}
+{{ ('<b>' ~ crap ~ '</b>')|raw }}

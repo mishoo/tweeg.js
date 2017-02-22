@@ -924,13 +924,12 @@ $FOR = $TR.for;";
         }
 
         function compile_prog(env, node) {
-            // un-nest embedded prog-s
-            var str = "", body = [];
+            var str = "", a_body = [];
             function add(item) {
                 if (is_constant(item) || item.type == NODE_STAT) {
-                    body.push(item);
+                    a_body.push(item);
                 } else {
-                    body.push({ type: NODE_ESCAPE, expr: item });
+                    a_body.push({ type: NODE_ESCAPE, expr: item });
                 }
             }
             node.body.forEach(function do_item(item){
@@ -940,9 +939,14 @@ $FOR = $TR.for;";
                     add(item);
                 }
             });
-            return "$OUT([" + body.map(function(item){
-                return compile(env, item);
-            }).join(",") + "])";
+            var b_body = [];
+            a_body.forEach(function(item){
+                var code = compile(env, item);
+                if (code != "('')" && code != '("")' && code != "(undefined)" && code != "(null)") {
+                    b_body.push(code);
+                }
+            });
+            return "$OUT([" + b_body.join(",") + "])";
         }
 
         function compile_escape(env, node) {

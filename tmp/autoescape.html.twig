@@ -2,17 +2,15 @@
   <foo/>
 {% endmacro %}
 
-{% set wat = "<foo/>"|raw %}
+{% set wat = "<foo/>" %}
 
-{{ _self.foo() }}
-{{ "<foo/>" }}
-{{ '<foo/>' }}
-{{ wat }}
+{{ wat|e }}
 
-{{ "foo#{wat|raw}bar" }}
+{{ "<b>" }}
+{{ "<b>#{wat}</b>" }}
+{{ '<b>'|raw ~ wat|raw ~ '</b>'|raw }}
+{{ "</b>" }}
 
-{% if not wat %}
-  NOT HAS
-{% elseif wat %}
-  HAS WAT
-{% endif %}
+<hr/>
+
+{{ wat|e|raw|raw|raw }}

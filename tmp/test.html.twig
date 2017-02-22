@@ -45,7 +45,7 @@ Comments are ignored
 
 <p>{{ not not "false" }}</p>
 
-{{ _self.link("http://bar.com/", "bar" ) }}
+{{ _self.link("http://bar.com/", "bar") }}
 
 {{ links }}
 
@@ -71,3 +71,8 @@ Comments are ignored
 {% if 9 is divisible by(3) %}
   YAAAAAAAAAS
 {% endif %}
+
+{% set crap = "<br>" %}
+{% autoescape false %}
+  {{ crap }}
+{% endautoescape %}

@@ -67,6 +67,7 @@ TWEEG = function(RUNTIME){
     var NODE_INDEX        = "index";
     var NODE_STAT         = "stat";
     var NODE_TEST_OP      = "test_op";
+    var NODE_ESCAPE       = "escape";
 
     /* -----[ Lexer modes ]----- */
 
@@ -80,11 +81,20 @@ TWEEG = function(RUNTIME){
     var CORE_TAGS = {
         "autoescape": {
             parse: function(X) {
+                var strategy = X.looking_at(NODE_STAT_END) ? "html" : X.parse_atom();
+                if (!is_constant(strategy)) {
+                    X.croak("Autoescape strategy must be a constant");
+                }
                 return {
-                    type: X.parse_expression(),
+                    strategy: strategy.value,
                     body: (X.skip(NODE_STAT_END),
                            X.parse_until(X.end_body_predicate(/^endautoescape$/, true)))
                 };
+            },
+            compile: function(env, X, node) {
+                return X.with_escaping(node.strategy, function(){
+                    return X.compile(env, node.body);
+                });
             }
         },
 
@@ -376,6 +386,16 @@ TWEEG = function(RUNTIME){
         return precedence;
     }
 
+    function is_constant(node) {
+        switch (node.type) {
+          case NODE_STR:
+          case NODE_NUMBER:
+          case NODE_BOOLEAN:
+          case NODE_NULL:
+            return true;
+        }
+    }
+
     /* -----[ Das Parser ]----- */
 
     function parse(input) {
@@ -390,6 +410,7 @@ TWEEG = function(RUNTIME){
             looking_at         : looking_at,
             next               : next,
             parse_expression   : parse_expression,
+            parse_atom         : parse_atom,
             parse_next         : parse_next,
             parse_until        : parse_until,
             peek               : peek,
@@ -523,6 +544,9 @@ TWEEG = function(RUNTIME){
             if (tok.value.length || !body.length) {
                 tok.type = NODE_STR;
                 body.push(tok);
+            }
+            if (body.length == 1 && body[0].type == NODE_STR) {
+                return body[0];
             }
             return {
                 type: NODE_PROG,
@@ -743,7 +767,7 @@ TWEEG = function(RUNTIME){
 
     /* -----[ Das Compiler ]----- */
 
-    function compile(node, env) {
+    function compile(node, env, options) {
         if (!env) env = new Environment();
         var context = {
             root_env         : env,
@@ -755,8 +779,10 @@ TWEEG = function(RUNTIME){
             add_function     : add_function,
             add_export       : add_export,
             outside_main     : outside_main,
+            with_escaping    : with_escaping,
             gensym           : gensym
         };
+        var autoescape = option("autoescape", "html");
         var globals = [];
         var functions = [];
         var output_code = "var \
@@ -769,6 +795,7 @@ $OP = $TR.operator,\
 $FILTER = $TR.filter,\
 $EMPTY = $TR.empty,\
 $ITERABLE = $TR.iterable,\
+$ESC = $TR.escape,\
 $FOR = $TR.for;";
         var inside_main = true;
         add_export("$main", compile_main());
@@ -777,6 +804,12 @@ $FOR = $TR.for;";
         });
         output_code += "return _self";
         return "function $TWEEG($TR){" + output_code + "}";
+
+        function option(name, def, val) {
+            if (!options) return def;
+            val = options[name];
+            return val === undefined ? def : val;
+        }
 
         function add_export(name, code) {
             output_code += "_self[" + JSON.stringify(name) + "]=" + code + ";";
@@ -797,13 +830,14 @@ $FOR = $TR.for;";
             var body = compile(env, node);
             var main = "function($DATA){";
             main += output_vars(env.own());
-            if (globals.length) {
-                main += "var " + globals.reduce(function(a, name){
-                    if (!/^(?:_self|_context)$/.test(name)) {
-                        a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
-                    }
-                    return a;
-                }, []).join(",") + ";";
+            var args = globals.reduce(function(a, name){
+                if (!/^(?:_self|_context)$/.test(name)) {
+                    a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
+                }
+                return a;
+            }, []);
+            if (args.length) {
+                main += "var " + args.join(",") + ";";
             }
             main += "return " + body + "}";
             return main;
@@ -821,16 +855,6 @@ $FOR = $TR.for;";
             // var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
             var loc = "";
             return parens(loc + _compile(env, node));
-        }
-
-        function is_constant(node) {
-            switch (node.type) {
-              case NODE_STR:
-              case NODE_NUMBER:
-              case NODE_BOOLEAN:
-              case NODE_NULL:
-                return true;
-            }
         }
 
         function _compile(env, node) {
@@ -870,6 +894,9 @@ $FOR = $TR.for;";
 
               case NODE_CALL:
                 return compile_call(env, node);
+
+              case NODE_ESCAPE:
+                return compile_escape(env, node);
             }
 
             throw new Error("Cannot compile node " + JSON.stringify(node));
@@ -882,44 +909,46 @@ $FOR = $TR.for;";
         function compile_prog(env, node) {
             // un-nest embedded prog-s
             var str = "", body = [];
-            (function flatten(a){
-                for (var i = 0; i < a.length; ++i) {
-                    var node = a[i];
-                    if (node.type == NODE_PROG) {
-                        flatten(node.body);
-                    } else if (node.type == NODE_BINARY && node.operator == "~") {
-                        flatten([ node.left, node.right ]);
-                    } else {
-                        body.push(node);
-                    }
-                }
-            })(node.body, []);
-            for (var i = 0; i < body.length;) {
-                var x = body[i];
-                if (str != null) {
-                    if (is_constant(x)) {
-                        str += RUNTIME.out(x.value);
-                    } else {
-                        str = null;
-                    }
-                }
-                if (is_constant(x) && i && body[i - 1].type == NODE_STR) {
-                    body[i - 1].value += RUNTIME.out(x.value);
-                    body.splice(i, 1);
+            function add(item) {
+                if (is_constant(item) || item.type == NODE_STAT) {
+                    body.push(item);
                 } else {
-                    i++;
+                    body.push({ type: NODE_ESCAPE, expr: item });
                 }
             }
-            if (str != null) {
-                return JSON.stringify(str);
-            }
-            return "$OUT([" + body.reduce(function(a, item){
-                var code = compile(env, item);
-                if (code && code != "('')" && code != '("")' && code != '(undefined)' && code != '(null)') {
-                    a.push(code);
+            node.body.forEach(function do_item(item){
+                if (item.type == NODE_PROG) {
+                    item.body.forEach(do_item);
+                } else {
+                    add(item);
                 }
-                return a;
-            }, []).join(",") + "])";
+            });
+            return "$OUT([" + body.map(function(item){
+                return compile(env, item);
+            }).join(",") + "])";
+        }
+
+        function compile_escape(env, node) {
+            if (autoescape) {
+                if (node.expr.type == NODE_FILTER && node.expr.name == "raw") {
+                    return compile(env, node.expr.expr);
+                }
+            }
+            if (autoescape) {
+                return "$ESC(" + compile(env, node.expr) + "," + JSON.stringify(autoescape) + ")";
+            } else {
+                return compile(env, node.expr);
+            }
+        }
+
+        function with_escaping(esc, func) {
+            var save = autoescape;
+            autoescape = esc;
+            try {
+                return func();
+            } finally {
+                autoescape = save;
+            }
         }
 
         function compile_call(env, node) {
@@ -956,8 +985,14 @@ $FOR = $TR.for;";
                 : "$BOOL(" + compile(env, node) + ")";
         }
 
-        function compile_num(env, node) {
+        function is_number(node) {
             return node.type == NODE_NUMBER
+                || (node.type == NODE_UNARY && /^[-+]$/.test(node.operator))
+                || (node.type == NODE_BINARY && /^[-+*/%]/.test(node.operator));
+        }
+
+        function compile_num(env, node) {
+            return is_number(node)
                 ? compile(env, node)
                 : "$NUMBER(" + compile(env, node) + ")";
         }
@@ -1103,7 +1138,7 @@ $FOR = $TR.for;";
             if (!impl || !impl.compile) {
                 throw new Error("Compiler not implemented for `" + node.tag + "`");
             }
-            return impl.compile(env, context, node);
+            return impl.compile(env, context, node) || "''";
         }
 
         function output_vars(vars) {

@@ -8,18 +8,20 @@ require("../runtime.js");
 var runtime = TWEEG_RUNTIME();
 var t = TWEEG(runtime).init();
 
-var tmpl = fs.readFileSync("./test.html.twig", "utf8");
+var tmpl = fs.readFileSync(process.argv[2] || "./autoescape.html.twig", "utf8");
 var ast = t.parse(tmpl);
 var code = t.compile(ast);
 console.log(code);
 var ugly = uglify(code);
+console.log(ugly);
+console.log("---------------------------");
 console.log(beautify(code));
 console.log(ugly.length, code.length);
 fs.writeFileSync("/tmp/crap.js", beautify(code), "utf8");
 
 var compiled = new Function("return " + code)()(runtime);
 console.log("---------------------------");
-console.log(compiled.$main({
+var result = compiled.$main({
     links: [
         { url: "http://google.com/", title: "Google" },
         { url: "#", title: "BOGUS" },
@@ -27,7 +29,8 @@ console.log(compiled.$main({
     ],
     hello: "Hello",
     world: "world"
-}));
+});
+console.log(result + "");
 
 
 

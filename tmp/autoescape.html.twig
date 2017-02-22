@@ -1,0 +1,10 @@
+{% macro foo() %}
+  <foo/>
+{% endmacro %}
+
+{% set wat = "<foo/>" %}
+
+{{ _self.foo() }}
+{{ "<foo/>" }}
+{{ '<foo/>' }}
+{{ wat }}

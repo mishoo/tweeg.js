@@ -233,7 +233,9 @@ TWEEG_RUNTIME = function(){
             return val != null && typeof val == "object";
         },
 
-        escape: escape
+        escape: escape,
+
+        toString: toString
     };
 
     return TR;

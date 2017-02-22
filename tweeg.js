@@ -99,26 +99,32 @@ TWEEG = function(RUNTIME){
         },
 
         "if": {
-            parse: function(X) {
+            parse: function parse_if(X) {
                 var node = {
                     cond: X.parse_expression(),
                     then: (X.skip(NODE_STAT_END),
                            X.parse_until(X.end_body_predicate(/^(?:elseif|else|endif)$/)))
                 };
                 var tag = X.skip(NODE_SYMBOL).value;
-                X.skip(NODE_STAT_END);
                 if (tag == "else") {
+                    X.skip(NODE_STAT_END);
                     node.else = X.parse_until(X.end_body_predicate(/^endif$/, true));
                 } else if (tag == "elseif") {
-                    node.else = X.parse_tag_if();
+                    node.else = parse_if(X);
+                    node.else.type = NODE_STAT;
+                    node.else.tag = "if";
+                } else {
+                    X.skip(NODE_STAT_END);
                 }
                 return node;
             },
             compile: function(env, X, node) {
-                var condition = X.compile_bool(env, node.cond);
-                var true_branch = X.compile(env, node.then);
-                var else_branch = node.else && X.compile(env, node.else);
-                return condition + "?" + true_branch + ":" + (else_branch || "''");
+                return X.compile(env, {
+                    type: NODE_CONDITIONAL,
+                    cond: node.cond,
+                    then: node.then,
+                    else: node.else || EMPTY_STRING
+                });
             }
         },
 
@@ -308,6 +314,8 @@ TWEEG = function(RUNTIME){
             }
         }
     };
+
+    var EMPTY_STRING = { type: NODE_STR, value: "" };
 
     /* -----[ Das Environment ]----- */
 
@@ -548,10 +556,17 @@ TWEEG = function(RUNTIME){
             if (body.length == 1 && body[0].type == NODE_STR) {
                 return body[0];
             }
-            return {
-                type: NODE_PROG,
-                body: body
-            };
+            return (function strcat(body){
+                if (body.length < 2) {
+                    return body[0];
+                }
+                return {
+                    type     : NODE_BINARY,
+                    operator : "~",
+                    right    : body.pop(),
+                    left     : strcat(body)
+                };
+            }(body));
         }
 
         function parse_array() {
@@ -774,6 +789,7 @@ TWEEG = function(RUNTIME){
             compile          : compile,
             compile_bool     : compile_bool,
             compile_num      : compile_num,
+            compile_ternary  : compile_ternary,
             output_vars      : output_vars,
             output_name      : output_name,
             add_function     : add_function,
@@ -787,6 +803,7 @@ TWEEG = function(RUNTIME){
         var functions = [];
         var output_code = "var \
 _self = {},\
+$STR = $TR.toString,\
 $OUT = $TR.out,\
 $BOOL = $TR.bool,\
 $NUMBER = $TR.number,\
@@ -979,16 +996,36 @@ $FOR = $TR.for;";
             return code + ")";
         }
 
-        function compile_bool(env, node) {
+        function is_boolean(node) {
             return node.type == NODE_BOOLEAN
+                || (node.type == NODE_UNARY && node.operator == "not")
+                || (node.type == NODE_BINARY && /^(?:and|or|==|!=|<|>|<=|>=|in|not in|matches|starts with|ends with|is|is not)$/.test(node.operator))
+                || (node.type == NODE_CONDITIONAL && is_boolean(node.left) && is_boolean(node.right));
+        }
+
+        function compile_bool(env, node) {
+            return is_boolean(node)
                 ? compile(env, node)
                 : "$BOOL(" + compile(env, node) + ")";
+        }
+
+        function is_string(node) {
+            return node.type == NODE_STR || node.type == NODE_PROG || node.type == NODE_STAT
+                || (node.type == NODE_BINARY && /^[~]$/.test(node.operator))
+                || (node.type == NODE_CONDITIONAL && is_string(node.then) && is_string(node.else));
+        }
+
+        function compile_str(env, node) {
+            return is_string(node)
+                ? compile(env, node)
+                : "$STR(" + compile(env, node) + ")";
         }
 
         function is_number(node) {
             return node.type == NODE_NUMBER
                 || (node.type == NODE_UNARY && /^[-+]$/.test(node.operator))
-                || (node.type == NODE_BINARY && /^[-+*/%]/.test(node.operator));
+                || (node.type == NODE_BINARY && /^[-+*/%]/.test(node.operator))
+                || (node.type == NODE_CONDITIONAL && is_number(node.then) && is_number(node.else));
         }
 
         function compile_num(env, node) {
@@ -1068,7 +1105,7 @@ $FOR = $TR.for;";
                 return "Math.power(" + compile_num(env, node.left) + "," + compile_num(env, node.right) + ")";
 
               case "~":
-                return compile_prog(env, { body: [ node.left, node.right ]});
+                return compile_str(env, node.left) + "+" + compile_str(env, node.right);
 
               case "not in":
                 return "!" + compile_operator(env, "in", node);

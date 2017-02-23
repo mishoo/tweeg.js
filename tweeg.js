@@ -312,6 +312,42 @@ TWEEG = function(RUNTIME){
                     body: X.parse_until(X.end_body_predicate(/^endspaceless$/, true))
                 };
             }
+        },
+
+        "include": {
+            parse: function(X) {
+                var node = { template: X.parse_expression() };
+                if (X.looking_at(NODE_SYMBOL, "ignore")) {
+                    X.next();
+                    X.skip(NODE_SYMBOL, "missing");
+                }
+                if (X.looking_at(NODE_SYMBOL, "with")) {
+                    X.next();
+                    node.vars = X.parse_expression();
+                }
+                if (X.looking_at(NODE_SYMBOL, "only")) {
+                    X.next();
+                    node.only = true;
+                }
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                var args = [ X.compile(env, node.template) ];
+                var ctx = X.make_context(env);
+                if (node.vars) {
+                    if (node.only) {
+                        args.push(X.compile(env, node.vars));
+                    } else {
+                        args.push("$MERGE({},$DATA," +
+                                  (ctx ? ctx + "," : "") +
+                                  X.compile(env, node.vars) + ")");
+                    }
+                } else if (!node.only) {
+                    args.push("$MERGE({},$DATA" + (ctx ? "," + ctx : "") + ")");
+                }
+                return "$INCLUDE(" + args.join(",") + ")";
+            }
         }
     };
 
@@ -796,6 +832,7 @@ TWEEG = function(RUNTIME){
             add_export       : add_export,
             outside_main     : outside_main,
             with_escaping    : with_escaping,
+            make_context     : make_context,
             gensym           : gensym
         };
         var autoescape = option("autoescape", "html");
@@ -803,6 +840,8 @@ TWEEG = function(RUNTIME){
         var functions = [];
         var output_code = "var \
 _self = {},\
+$MERGE = $TR.merge,\
+$INCLUDE = $TR.include,\
 $STR = $TR.toString,\
 $OUT = $TR.out,\
 $BOOL = $TR.bool,\
@@ -858,6 +897,20 @@ $FOR = $TR.for;";
             }
             main += "return " + body + "}";
             return main;
+        }
+
+        function make_context(env) {
+            var ctx = [];
+            var has = false;
+            for (var i in env.vars) {
+                // we explicitly want to dig prototype components too,
+                // but exclude internal stuff, which will start with $
+                if (!/^\$/.test(i)) {
+                    ctx.push(JSON.stringify(i) + ":" + output_name(i));
+                    has = true;
+                }
+            }
+            return has ? "{" + ctx.join(",") + "}" : null;
         }
 
         function gensym() {

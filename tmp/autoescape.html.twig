@@ -14,3 +14,7 @@
 <hr/>
 
 {{ wat|e|raw|raw|raw }}
+
+{% set m = wat matches '/foo/' %}
+
+{{ m[0] }}

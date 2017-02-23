@@ -13,6 +13,8 @@ TWEEG_RUNTIME = function(){
         // }
     };
 
+    var HOP = Object.prototype.hasOwnProperty;
+
     function safeString(str) {
         return new RawString(str);
     }
@@ -56,7 +58,7 @@ TWEEG_RUNTIME = function(){
     function toString(thing) {
         // let's mimic PHP behavior as best as we can
         if (thing instanceof String || typeof thing == "string") {
-            return thing;
+            return thing + "";
         }
         if (thing === true) {
             return "1";
@@ -68,7 +70,7 @@ TWEEG_RUNTIME = function(){
             if (typeof thing == "object") {
                 return "Array";
             } else {
-                return thing;
+                return thing + "";
             }
         }
         return "";
@@ -134,7 +136,7 @@ TWEEG_RUNTIME = function(){
                 if (Array.isArray(data) || typeof data == "string") {
                     return data.indexOf(thing) >= 0;
                 }
-                return Object.prototype.hasOwnProperty.call(data, thing);
+                return HOP.call(data, thing);
             }
         },
 
@@ -224,7 +226,7 @@ TWEEG_RUNTIME = function(){
             }
             if (typeof val == "object") {
                 for (var i in val) {
-                    if (Object.prototype.hasOwnProperty.call(val, i))
+                    if (HOP.call(val, i))
                         return false;
                 }
                 return true;
@@ -239,7 +241,25 @@ TWEEG_RUNTIME = function(){
 
         escape: escape,
 
-        toString: toString
+        toString: toString,
+
+        merge: Object.assign || function(a) {
+            for (var i = 1; i < arguments.length; ++i) {
+                var b = arguments[i];
+                if (b != null) {
+                    for (var j in b) {
+                        if (HOP.call(b, j)) {
+                            a[j] = b[j];
+                        }
+                    }
+                }
+            }
+            return a;
+        },
+
+        include: function(name, context) {
+            return JSON.stringify(context, null, 2);
+        }
     };
 
     return TR;

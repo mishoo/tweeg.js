@@ -59,7 +59,7 @@ TWEEG = function(RUNTIME){
     var NODE_NULL         = "null";
     var NODE_BINARY       = "binary";
     var NODE_UNARY        = "unary";
-    var NODE_CONDITIONAL  = "conditional";
+    var NODE_COND         = "cond";
     var NODE_CALL         = "call";
     var NODE_FILTER       = "filter";
     var NODE_ARRAY        = "array";
@@ -68,6 +68,7 @@ TWEEG = function(RUNTIME){
     var NODE_STAT         = "stat";
     var NODE_TEST_OP      = "test_op";
     var NODE_ESCAPE       = "escape";
+    var NODE_SLICE        = "slice";
 
     /* -----[ Lexer modes ]----- */
 
@@ -120,7 +121,7 @@ TWEEG = function(RUNTIME){
             },
             compile: function(env, X, node) {
                 return X.compile(env, {
-                    type: NODE_CONDITIONAL,
+                    type: NODE_COND,
                     cond: node.cond,
                     then: node.then,
                     else: node.else || EMPTY_STRING
@@ -717,7 +718,7 @@ TWEEG = function(RUNTIME){
             if (looking_at(NODE_OPERATOR, "?")) {
                 next();
                 expr = {
-                    type: NODE_CONDITIONAL,
+                    type: NODE_COND,
                     cond: expr,
                     then: parse_expression(),
                     else: (skip(NODE_PUNC, ":"), parse_expression())
@@ -748,10 +749,35 @@ TWEEG = function(RUNTIME){
         }
 
         function maybe_index(expr) {
-            var prop;
+            var prop, start, length;
             if (looking_at(NODE_PUNC, "[")) {
                 next();
+                if (looking_at(NODE_PUNC, ":")) {
+                    // handle slice syntax with no start: [:2, :-3] etc.
+                    next();
+                    length = looking_at(NODE_PUNC, "]") ? { type: NODE_NULL } : parse_expression();
+                    skip(NODE_PUNC, "]");
+                    return {
+                        type: NODE_SLICE,
+                        expr: expr,
+                        start: { type: NODE_NULL },
+                        length: length
+                    };
+                }
                 prop = parse_expression();
+                if (looking_at(NODE_PUNC, ":")) {
+                    // handle slice syntax with start: [1:2, 0:-3] etc.
+                    start = prop;
+                    next();
+                    length = looking_at(NODE_PUNC, "]") ? { type: NODE_NULL } : parse_expression();
+                    skip(NODE_PUNC, "]");
+                    return {
+                        type: NODE_SLICE,
+                        expr: expr,
+                        start: start,
+                        length: length
+                    };
+                }
                 skip(NODE_PUNC, "]");
                 return {
                     type: NODE_INDEX,
@@ -825,7 +851,7 @@ TWEEG = function(RUNTIME){
             compile          : compile,
             compile_bool     : compile_bool,
             compile_num      : compile_num,
-            compile_ternary  : compile_ternary,
+            compile_cond     : compile_cond,
             output_vars      : output_vars,
             output_name      : output_name,
             add_function     : add_function,
@@ -847,6 +873,7 @@ $OUT = $TR.out,\
 $BOOL = $TR.bool,\
 $NUMBER = $TR.number,\
 $FUNC = $TR.func,\
+$SLICE = $TR.slice,\
 $OP = $TR.operator,\
 $FILTER = $TR.filter,\
 $EMPTY = $TR.empty,\
@@ -932,43 +959,20 @@ $FOR = $TR.for;";
                 return JSON.stringify(node.value);
             }
             switch (node.type) {
-              case NODE_PROG:
-                return compile_prog(env, node);
-
-              case NODE_BINARY:
-                return compile_binary(env, node);
-
-              case NODE_CONDITIONAL:
-                return compile_ternary(env, node);
-
-              case NODE_UNARY:
-                return compile_unary(env, node);
-
-              case NODE_FILTER:
-                return compile_filter(env, node);
-
-              case NODE_INDEX:
-                return compile_index(env, node);
-
-              case NODE_ARRAY:
-                return compile_array(env, node);
-
-              case NODE_HASH:
-                return compile_hash(env, node);
-
-              case NODE_SYMBOL:
-                return compile_sym(env, node);
-
-              case NODE_STAT:
-                return compile_stat(env, node);
-
-              case NODE_CALL:
-                return compile_call(env, node);
-
-              case NODE_ESCAPE:
-                return compile_escape(env, node);
+              case NODE_PROG        : return compile_prog(env, node);
+              case NODE_BINARY      : return compile_binary(env, node);
+              case NODE_COND        : return compile_cond(env, node);
+              case NODE_UNARY       : return compile_unary(env, node);
+              case NODE_FILTER      : return compile_filter(env, node);
+              case NODE_INDEX       : return compile_index(env, node);
+              case NODE_ARRAY       : return compile_array(env, node);
+              case NODE_HASH        : return compile_hash(env, node);
+              case NODE_SYMBOL      : return compile_sym(env, node);
+              case NODE_STAT        : return compile_stat(env, node);
+              case NODE_CALL        : return compile_call(env, node);
+              case NODE_ESCAPE      : return compile_escape(env, node);
+              case NODE_SLICE       : return compile_slice(env, node);
             }
-
             throw new Error("Cannot compile node " + JSON.stringify(node));
         }
 
@@ -1000,6 +1004,11 @@ $FOR = $TR.for;";
                 }
             });
             return "$OUT([" + b_body.join(",") + "])";
+        }
+
+        function compile_slice(env, node) {
+            return "$SLICE(" + compile(env, node.expr) + "," +
+                compile(env, node.start) + "," + compile(env, node.length) + ")";
         }
 
         function compile_escape(env, node) {
@@ -1057,7 +1066,7 @@ $FOR = $TR.for;";
             return node.type == NODE_BOOLEAN
                 || (node.type == NODE_UNARY && node.operator == "not")
                 || (node.type == NODE_BINARY && /^(?:and|or|==|!=|<|>|<=|>=|in|not in|matches|starts with|ends with|is|is not)$/.test(node.operator))
-                || (node.type == NODE_CONDITIONAL && is_boolean(node.left) && is_boolean(node.right));
+                || (node.type == NODE_COND && is_boolean(node.left) && is_boolean(node.right));
         }
 
         function compile_bool(env, node) {
@@ -1069,7 +1078,7 @@ $FOR = $TR.for;";
         function is_string(node) {
             return node.type == NODE_STR || node.type == NODE_PROG || node.type == NODE_STAT
                 || (node.type == NODE_BINARY && /^[~]$/.test(node.operator))
-                || (node.type == NODE_CONDITIONAL && is_string(node.then) && is_string(node.else));
+                || (node.type == NODE_COND && is_string(node.then) && is_string(node.else));
         }
 
         function compile_str(env, node) {
@@ -1082,7 +1091,7 @@ $FOR = $TR.for;";
             return node.type == NODE_NUMBER
                 || (node.type == NODE_UNARY && /^[-+]$/.test(node.operator))
                 || (node.type == NODE_BINARY && /^[-+*/%]/.test(node.operator))
-                || (node.type == NODE_CONDITIONAL && is_number(node.then) && is_number(node.else));
+                || (node.type == NODE_COND && is_number(node.then) && is_number(node.else));
         }
 
         function compile_num(env, node) {
@@ -1173,11 +1182,7 @@ $FOR = $TR.for;";
               case "is not":
                 return "!" + compile_is(env, node);
 
-              case "matches":
-              case "starts with":
-              case "ends with":
-              case "..":
-              case "in":
+              case "matches": case "starts with": case "ends with": case "..": case "in":
                 return compile_operator(env, op, node);
             }
 
@@ -1216,7 +1221,7 @@ $FOR = $TR.for;";
                 : node.operator + compile_num(env, node.expr);
         }
 
-        function compile_ternary(env, node) {
+        function compile_cond(env, node) {
             return compile_bool(env, node.cond)
                 + "?" + compile(env, node.then)
                 + ":" + compile(env, node.else);

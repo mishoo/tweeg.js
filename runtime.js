@@ -76,11 +76,23 @@ TWEEG_RUNTIME = function(){
         return "";
     }
 
+    function slice(thing, start, end) {
+        if (end != null && end >= 0) {
+            end += start;
+        }
+        return thing.slice(start, end);
+    }
+
+    function length(thing) {
+        return thing.length;
+    }
+
     var TR = {
         func: {
             cycle: function(array, index) {
                 return array[index % array.length];
-            }
+            },
+            slice: slice
         },
 
         filter: {
@@ -95,7 +107,9 @@ TWEEG_RUNTIME = function(){
             },
             raw: function(val) {
                 return safeString("" + val);
-            }
+            },
+            slice: slice,
+            length: length
         },
 
         operator: {
@@ -238,6 +252,8 @@ TWEEG_RUNTIME = function(){
             // this covers arrays as well
             return val != null && typeof val == "object";
         },
+
+        slice: slice,
 
         escape: escape,
 

@@ -1,3 +1,8 @@
 {{ foo }}
 {% set foo = 5 %}
 {% include "bar.html.twig" with { moo: "man" } %}
+
+{% with { moo: "man"} only %}
+  {% set bar = 5 %}
+  {{moo}}{{bar}}
+{% endwith %}

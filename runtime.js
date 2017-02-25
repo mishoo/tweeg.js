@@ -280,7 +280,7 @@ TWEEG_RUNTIME = function(){
         },
 
         register: function(name, template) {
-            REGISTRY[name] = template;
+            template = REGISTRY[name] = template();
             template.$name = name;
         }
     };

@@ -12,6 +12,7 @@ function compile(files, options) {
     var code = `function $TWEEG($TR){
 var $MERGE = $TR.merge,
 $INCLUDE = $TR.include,
+$REGISTER = $TR.register,
 $STR = $TR.toString,
 $OUT = $TR.out,
 $BOOL = $TR.bool,
@@ -61,7 +62,7 @@ $FOR = $TR.for;
             }
         });
 
-        code += `$TR.register(${JSON.stringify(template_name)}, ${result.code}());`;
+        code += `$REGISTER(${JSON.stringify(template_name)}, ${result.code});`;
     }
 
     function replacePaths(filename) {

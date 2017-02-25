@@ -251,7 +251,7 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 var expr = node.expr ? X.compile(env, node.expr) : "";
                 var name = X.gensym();
-                var code = "(function " + name + "(" + name + "){";
+                var code = "function " + name + "(" + name + "){";
                 if (expr) {
                     code += "with(" + name + ")";
                 }
@@ -263,12 +263,12 @@ TWEEG = function(RUNTIME){
                 } else {
                     code += X.compile(env.extend(), node.body);
                 }
-                code += ")})";
+                code += ")}";
                 if (node.only) {
                     X.add_function(name, code);
                     code = name;
                 }
-                return code + "(" + expr + ")";
+                return "(" + code + "(" + expr + "))";
             }
         },
 

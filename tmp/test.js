@@ -8,9 +8,10 @@ require("../runtime.js");
 var runtime = TWEEG_RUNTIME();
 var t = TWEEG(runtime).init();
 
-var tmpl = fs.readFileSync(process.argv[2] || "./autoescape.html.twig", "utf8");
+var template_name = process.argv[2];
+var tmpl = fs.readFileSync(template_name, "utf8");
 var ast = t.parse(tmpl);
-var code = t.compile(ast);
+var code = t.compile(ast, { name: template_name });
 console.log(code);
 var ugly = uglify(code);
 console.log(ugly);

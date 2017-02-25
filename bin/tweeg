@@ -1,0 +1,30 @@
+#! /usr/bin/env node
+
+var path = require("path");
+var args = require("minimist")(process.argv.slice(2), {
+      default: {
+          path: [],
+          escape: "html",
+          base: path.resolve()
+      }
+});
+var files = args._;
+
+if (!Array.isArray(args.path)) {
+    args.path = [ args.path ];
+}
+var paths = {};
+args.path.forEach(function(def){
+    var m = /^([a-z0-9_]+)=(.*)$/i.exec(def);
+    if (!m) {
+        throw new Error("Can't understand path definition: " + def);
+    }
+    paths[m[1]] = m[2];
+});
+
+var compile = require("../compiler").compile;
+console.log("%s", compile(files, {
+    base: args.base,
+    paths: paths,
+    escape: args.escape
+}));

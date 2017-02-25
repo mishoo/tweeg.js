@@ -1,6 +1,8 @@
 TWEEG_RUNTIME = function(){
     "use strict";
 
+    var REGISTRY = {};
+
     function RawString(str) {
         this.value = str;
     }
@@ -273,8 +275,13 @@ TWEEG_RUNTIME = function(){
             return a;
         },
 
-        include: function(name, context) {
+        include: function(name, optional, context) {
             return JSON.stringify(context, null, 2);
+        },
+
+        register: function(name, template) {
+            REGISTRY[name] = template;
+            template.$name = name;
         }
     };
 

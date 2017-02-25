@@ -321,6 +321,7 @@ TWEEG = function(RUNTIME){
                 if (X.looking_at(NODE_SYMBOL, "ignore")) {
                     X.next();
                     X.skip(NODE_SYMBOL, "missing");
+                    node.optional = true;
                 }
                 if (X.looking_at(NODE_SYMBOL, "with")) {
                     X.next();
@@ -334,7 +335,23 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                var args = [ X.compile(env, node.template) ];
+                // try to figure out dependencies. when include is
+                // used with an expression, rather than string or
+                // array of strings, the user is out of luck.
+                (function add_dep(node){
+                    if (node.type == NODE_STR) {
+                        X.add_dependency(node.value);
+                    } else if (node.type == NODE_ARRAY) {
+                        node.body.forEach(add_dep);
+                    } else {
+                        // let's mark complex deps by just adding the AST node
+                        X.add_dependency(node);
+                    }
+                })(node.template);
+                var args = [
+                    X.compile(env, node.template),
+                    node.optional ? "true" : "false"
+                ];
                 var ctx = X.make_context(env);
                 if (node.vars) {
                     if (node.only) {
@@ -348,6 +365,18 @@ TWEEG = function(RUNTIME){
                     args.push("$MERGE({},$DATA" + (ctx ? "," + ctx : "") + ")");
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
+            }
+        },
+
+        "trans": {
+            parse: function(X) {
+                X.skip(NODE_STAT_END);
+                return {
+                    body: X.parse_until(X.end_body_predicate(/^endtrans$/, true))
+                };
+            },
+            compile: function() {
+                return JSON.stringify("TRANS");
             }
         }
     };
@@ -668,7 +697,7 @@ TWEEG = function(RUNTIME){
             };
             switch (tok.value) {
               case "constant":
-                throw new Error("TweegJS does not support `constant` test");
+                throw new Error("TweegJS does not support `constant` test operator");
               case "divisible":
                 skip(NODE_SYMBOL, "by");
                 node.expr = parse_atom();
@@ -844,7 +873,7 @@ TWEEG = function(RUNTIME){
 
     /* -----[ Das Compiler ]----- */
 
-    function compile(node, env, options) {
+    function compile(node, options, env) {
         if (!env) env = new Environment();
         var context = {
             root_env         : env,
@@ -859,34 +888,24 @@ TWEEG = function(RUNTIME){
             outside_main     : outside_main,
             with_escaping    : with_escaping,
             make_context     : make_context,
+            add_dependency   : add_dependency,
             gensym           : gensym
         };
         var autoescape = option("autoescape", "html");
+        var dependencies = [];
         var globals = [];
         var functions = [];
-        var output_code = "var \
-_self = {},\
-$MERGE = $TR.merge,\
-$INCLUDE = $TR.include,\
-$STR = $TR.toString,\
-$OUT = $TR.out,\
-$BOOL = $TR.bool,\
-$NUMBER = $TR.number,\
-$FUNC = $TR.func,\
-$SLICE = $TR.slice,\
-$OP = $TR.operator,\
-$FILTER = $TR.filter,\
-$EMPTY = $TR.empty,\
-$ITERABLE = $TR.iterable,\
-$ESC = $TR.escape,\
-$FOR = $TR.for;";
+        var output_code = "var _self = {};";
         var inside_main = true;
         add_export("$main", compile_main());
         functions.forEach(function(f){
             output_code += f.code + ";";
         });
         output_code += "return _self";
-        return "function $TWEEG($TR){" + output_code + "}";
+        return {
+            code: "function(){" + output_code + "}",
+            dependencies: dependencies
+        };
 
         function option(name, def, val) {
             if (!options) return def;
@@ -896,6 +915,12 @@ $FOR = $TR.for;";
 
         function add_export(name, code) {
             output_code += "_self[" + JSON.stringify(name) + "]=" + code + ";";
+        }
+
+        function add_dependency(file) {
+            if (dependencies.indexOf(file) < 0) {
+                dependencies.push(file);
+            }
         }
 
         function outside_main(f) {

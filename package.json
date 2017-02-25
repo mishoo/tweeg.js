@@ -1,0 +1,11 @@
+{
+    "name": "tweeg",
+    "description": "Twig -> JS compiler",
+    "author": "Mihai Bazon <mihai.bazon@gmail.com> (http://lisperator.net/)",
+    "license": "MIT",
+    "dependencies": {
+        "minimist": "1.2.0",
+        "uglify-js": "2.7.5"
+    },
+    "keywords": [ "PHP", "Twig", "JavaScript", "compiler" ]
+}

@@ -3,7 +3,10 @@ We're in INCLUDE
 {{ foo }}
 {% set foo = 5 %}
 {{ foo }}
-{% include "bar.html.twig" with { moo: "man" } %}
+{% include "bar.html.twig" with {
+    moo: "man",
+    ('a' ~ foo ~ foo): "afiftyfive"
+} %}
 
 End INCLUDE
 

@@ -10,24 +10,25 @@ function compile(files, options) {
     var tweeg = TWEEG(runtime).init();
 
     var code = `function $TWEEG($TR){
-var $MERGE = $TR.merge,
-$INCLUDE = $TR.include,
-$REGISTER = $TR.register,
-$STR = $TR.toString,
-$OUT = $TR.out,
-$BOOL = $TR.bool,
-$NUMBER = $TR.number,
-$FUNC = $TR.func,
-$SLICE = $TR.slice,
-$OP = $TR.operator,
-$FILTER = $TR.filter,
-$EMPTY = $TR.empty,
-$ITERABLE = $TR.iterable,
-$ESC = $TR.escape,
-$ESC_html = $TR.escape_html,
-$ESC_js = $TR.escape_js,
-$FOR = $TR.for;
-`;
+var $BOOL = $TR.bool
+,$EMPTY = $TR.empty
+,$ESC = $TR.escape
+,$ESC_html = $TR.escape_html
+,$ESC_js = $TR.escape_js
+,$FILTER = $TR.filter
+,$FOR = $TR.for
+,$FUNC = $TR.func
+,$HASH = $TR.hash
+,$INCLUDE = $TR.include
+,$ITERABLE = $TR.iterable
+,$MERGE = $TR.merge
+,$NUMBER = $TR.number
+,$OP = $TR.operator
+,$OUT = $TR.out
+,$REGISTER = $TR.register
+,$SLICE = $TR.slice
+,$STR = $TR.string
+;`;
 
     var compiled = {};
     files.forEach(compileFile);

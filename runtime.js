@@ -67,7 +67,7 @@ TWEEG_RUNTIME = function(){
         return str;
     }
 
-    function toString(thing) {
+    function string(thing) {
         // let's mimic PHP behavior as best as we can
         if (thing instanceof String || typeof thing == "string") {
             return thing + "";
@@ -185,7 +185,7 @@ TWEEG_RUNTIME = function(){
             return isNaN(val) ? 0 : val;
         },
 
-        make_hash: function(data) {
+        hash: function(data) {
             for (var i = 0, obj = {}; i < data.length;) {
                 obj[data[i++]] = data[i++];
             }
@@ -195,7 +195,7 @@ TWEEG_RUNTIME = function(){
         out: function(data) {
             var ret = "";
             for (var i = 0; i < data.length; ++i) {
-                ret += toString(data[i]);
+                ret += string(data[i]);
             }
             return safeString(ret);
         },
@@ -277,7 +277,7 @@ TWEEG_RUNTIME = function(){
             return escape(str, "js");
         },
 
-        toString: toString,
+        string: string,
 
         merge: Object.assign || function(a) {
             for (var i = 1; i < arguments.length; ++i) {

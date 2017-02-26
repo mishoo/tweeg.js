@@ -897,9 +897,8 @@ TWEEG = function(RUNTIME){
         var dependencies = [];
         var globals = [];
         var functions = [];
-        var output_code = "var _self = {};";
         var inside_main = true;
-        add_export("$main", compile_main());
+        var output_code = "var _self = { $main: " + compile_main() + "};";
         functions.forEach(function(f){
             output_code += f.code + ";";
         });
@@ -1147,7 +1146,7 @@ TWEEG = function(RUNTIME){
                     return JSON.stringify(item.key.value) + ":" + compile(env, item.value);
                 }).join(",") + "}";
             }
-            return "$TR.make_hash([" + node.body.map(function(item){
+            return "$HASH([" + node.body.map(function(item){
                 return compile(env, item.key) + "," + compile(env, item.value);
             }).join(",") + "])";
         }

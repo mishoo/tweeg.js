@@ -24,6 +24,8 @@ $FILTER = $TR.filter,
 $EMPTY = $TR.empty,
 $ITERABLE = $TR.iterable,
 $ESC = $TR.escape,
+$ESC_html = $TR.escape_html,
+$ESC_js = $TR.escape_js,
 $FOR = $TR.for;
 `;
 

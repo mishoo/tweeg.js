@@ -3,6 +3,16 @@ TWEEG_RUNTIME = function(){
 
     var REGISTRY = {};
 
+    var CURRENT = null;
+
+    var PATHS = {};
+
+    function replacePaths(filename) {
+        return filename.replace(/@[a-z0-9_]+/g, function(name){
+            return PATHS[name.substr(1)];
+        });
+    }
+
     function RawString(str) {
         this.value = str;
     }
@@ -259,6 +269,14 @@ TWEEG_RUNTIME = function(){
 
         escape: escape,
 
+        escape_html: function(str) {
+            return escape(str, "html");
+        },
+
+        escape_js: function(str) {
+            return escape(str, "js");
+        },
+
         toString: toString,
 
         merge: Object.assign || function(a) {
@@ -275,13 +293,71 @@ TWEEG_RUNTIME = function(){
             return a;
         },
 
-        include: function(name, optional, context) {
-            return JSON.stringify(context, null, 2);
+        include: function(name, context, optional) {
+            if (Array.isArray(name)) {
+                for (var i = 0; i < name.length; ++i) {
+                    var ret = TR.exec(name[i], true, context);
+                    if (ret != null) {
+                        return ret;
+                    }
+                }
+                if (!optional) {
+                    throw new Error("Could not find any of the templates: " + JSON.stringify(name));
+                }
+            } else {
+                return TR.exec(name, context, optional);
+            }
         },
 
         register: function(name, template) {
+            name = name.replace(/^\/?/, "/");
             template = REGISTRY[name] = template();
             template.$name = name;
+        },
+
+        get: function(name) {
+            name = name.replace(/^\/?/, "/");
+            return REGISTRY[name];
+        },
+
+        exec: function(template_name, args, ignore_missing) {
+            if (CURRENT) {
+                template_name = TR.resolve(CURRENT.$name, template_name);
+            }
+            var tmpl = TR.get(template_name);
+            if (!tmpl) {
+                if (ignore_missing) return null;
+                throw new Error("Could not find template " + template_name);
+            }
+            var save = CURRENT;
+            try {
+                CURRENT = tmpl;
+                return "" + tmpl.$main(args || {});
+            } finally {
+                CURRENT = save;
+            }
+        },
+
+        add_path: function(name, value) {
+            PATHS[name] = value;
+        },
+
+        resolve: function(src, dest) {
+            dest = replacePaths(dest);
+            if (/^\//.test(dest)) {
+                // absolute path — src doesn't matter
+                return dest.substr(1);
+            }
+            // normalize relative path
+            src = src.split(/\/+/);
+            src.pop();
+            dest.split(/\/+/).forEach(function(part){
+                if (part && part != ".") {
+                    if (part == "..") src.pop();
+                    else src.push(part);
+                }
+            });
+            return src.join("/");
         }
     };
 

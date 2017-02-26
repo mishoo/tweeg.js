@@ -349,8 +349,7 @@ TWEEG = function(RUNTIME){
                     }
                 })(node.template);
                 var args = [
-                    X.compile(env, node.template),
-                    node.optional ? "true" : "false"
+                    X.compile(env, node.template)
                 ];
                 var ctx = X.make_context(env);
                 if (node.vars) {
@@ -363,6 +362,9 @@ TWEEG = function(RUNTIME){
                     }
                 } else if (!node.only) {
                     args.push("$MERGE({},$DATA" + (ctx ? "," + ctx : "") + ")");
+                }
+                if (node.optional) {
+                    args.push("true");
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
             }
@@ -1043,7 +1045,7 @@ TWEEG = function(RUNTIME){
                 }
             }
             if (autoescape) {
-                return "$ESC(" + compile(env, node.expr) + "," + JSON.stringify(autoescape) + ")";
+                return "$ESC_" + autoescape + "(" + compile(env, node.expr) + ")";
             } else {
                 return compile(env, node.expr);
             }

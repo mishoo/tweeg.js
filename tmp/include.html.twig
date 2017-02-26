@@ -1,8 +1,13 @@
+We're in INCLUDE
+
 {{ foo }}
 {% set foo = 5 %}
+{{ foo }}
 {% include "bar.html.twig" with { moo: "man" } %}
 
-{% with { moo: "man"} only %}
+End INCLUDE
+
+{# with { moo: "man"} only %}
   {% set bar = 5 %}
   {{moo}}{{bar}}
-{% endwith %}
+{% endwith #}

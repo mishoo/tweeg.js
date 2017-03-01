@@ -16,3 +16,7 @@
 {% from _self import link as ahref %}
 
 {{ ahref("http://google.com/", "Goagl") }}
+
+{% import _self as me %}
+
+{{ me.link("http://foo.com/", "foo") }}

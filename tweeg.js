@@ -347,10 +347,14 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                X.add_dependency(node.template);
                 env.def(node.name.value);
-                return "(" + X.output_name(node.name.value)
-                    + "=$TR.get(" + X.compile(env, node.template) + "),'')";
+                if (node.template.type == NODE_SYMBOL && node.template.value == "_self") {
+                    return "(" + X.output_name(node.name.value) + "=_self,'')";
+                } else {
+                    X.add_dependency(node.template);
+                    return "(" + X.output_name(node.name.value)
+                        + "=$TR.get(" + X.compile(env, node.template) + "),'')";
+                }
             }
         },
 
@@ -371,16 +375,23 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                X.add_dependency(node.template);
-                var tmpl = X.gensym();
-                env.def(tmpl);
-                var code = node.defs.map(function(def){
+                var tmpl;
+                if (node.template.type == NODE_SYMBOL && node.template.value == "_self") {
+                    tmpl = "_self";
+                } else {
+                    X.add_dependency(node.template);
+                    env.def(tmpl = X.gensym());
+                }
+                var defs = node.defs.map(function(def){
                     env.def(def.ours.value);
                     return X.output_name(def.ours.value) + "=" + tmpl
                         + "[" + JSON.stringify(X.output_name(def.theirs.value)) + "]";
                 });
-                return "(" + tmpl + "=$TR.get(" + X.compile(env, node.template) + "),"
-                    + code.join(",") + ",'')";
+                var code = "(";
+                if (tmpl != "_self") {
+                    code += tmpl + "=$TR.get(" + X.compile(env, node.template) + "),";
+                }
+                return code + defs.join(",") + ",'')";
             }
         },
 

@@ -1,6 +1,6 @@
 var fs = require("fs");
 var path = require("path");
-var u2 = require("uglify-js");
+var UglifyJS = require("uglify-js");
 
 require("./tweeg.js");
 require("./runtime.js");
@@ -14,7 +14,19 @@ function compile(files, options) {
     var compiled = {};
     files.forEach(compileFile);
 
-    return TWEEG.wrap_code(code);
+    code = TWEEG.wrap_code(code);
+    var ugly = UglifyJS.minify([ code ], {
+        fromString: true,
+        warnings: false,
+        compress: {
+            pure_getters : true,
+            unsafe       : true,
+            unsafe_comps : true,
+            hoist_vars   : true,
+            pure_funcs   : ("$OUT,$ESC,$ESC_html,$ESC_js,$FILTER,$HASH,$MERGE,$NUMBER,$STR,$EMPTY,$SLICE").split(/,/)
+        }
+    });
+    return ugly.code;
 
     function compileFile(filename, source) {
         var fullname = replacePaths(filename);

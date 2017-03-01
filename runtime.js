@@ -7,6 +7,8 @@ TWEEG_RUNTIME = function(){
 
     var PATHS = {};
 
+    function Template() {}
+
     function replacePaths(filename) {
         return filename.replace(/@[a-z0-9_]+/g, function(name){
             return PATHS[name.substr(1)];
@@ -100,6 +102,12 @@ TWEEG_RUNTIME = function(){
     }
 
     var TR = {
+        t: function(data) {
+            // make a Template instance
+            // XXX: inheritance
+            return TR.merge(new Template(), data);
+        },
+
         func: {
             cycle: function(array, index) {
                 return array[index % array.length];
@@ -321,12 +329,15 @@ TWEEG_RUNTIME = function(){
             template.$name = name;
         },
 
-        get: function(template_name) {
-            if (CURRENT) {
-                template_name = TR.resolve(CURRENT.$name, template_name);
+        get: function(tmpl) {
+            if (tmpl instanceof Template) {
+                return tmpl;
             }
-            template_name = template_name.replace(/^\/?/, "/");
-            return REGISTRY[template_name];
+            if (CURRENT) {
+                tmpl = TR.resolve(CURRENT.$name, tmpl);
+            }
+            tmpl = tmpl.replace(/^\/?/, "/");
+            return REGISTRY[tmpl];
         },
 
         with: function(template_name, func, ignore_missing) {

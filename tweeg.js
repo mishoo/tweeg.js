@@ -77,6 +77,38 @@ TWEEG = function(RUNTIME){
     var LEX_EXPRESSION  = 3; // expression in {{ }} or {% %}
     var LEX_INT_EXPR    = 4; // expression in #{ } inside interpolated string
 
+    var NODES = {
+        NODE_TEXT        : NODE_TEXT,
+        NODE_EXPR_BEG    : NODE_EXPR_BEG,
+        NODE_STAT_BEG    : NODE_STAT_BEG,
+        NODE_EXPR_END    : NODE_EXPR_END,
+        NODE_STAT_END    : NODE_STAT_END,
+        NODE_OPERATOR    : NODE_OPERATOR,
+        NODE_NUMBER      : NODE_NUMBER,
+        NODE_PUNC        : NODE_PUNC,
+        NODE_STR         : NODE_STR,
+        NODE_INT_STR_BEG : NODE_INT_STR_BEG,
+        NODE_INT_STR     : NODE_INT_STR,
+        NODE_INT_STR_END : NODE_INT_STR_END,
+        NODE_SYMBOL      : NODE_SYMBOL,
+        NODE_COMMENT     : NODE_COMMENT,
+        NODE_PROG        : NODE_PROG,
+        NODE_BOOLEAN     : NODE_BOOLEAN,
+        NODE_NULL        : NODE_NULL,
+        NODE_BINARY      : NODE_BINARY,
+        NODE_UNARY       : NODE_UNARY,
+        NODE_COND        : NODE_COND,
+        NODE_CALL        : NODE_CALL,
+        NODE_FILTER      : NODE_FILTER,
+        NODE_ARRAY       : NODE_ARRAY,
+        NODE_HASH        : NODE_HASH,
+        NODE_INDEX       : NODE_INDEX,
+        NODE_STAT        : NODE_STAT,
+        NODE_TEST_OP     : NODE_TEST_OP,
+        NODE_ESCAPE      : NODE_ESCAPE,
+        NODE_SLICE       : NODE_SLICE
+    };
+
     /* -----[ core tag parsers ]----- */
 
     var CORE_TAGS = {
@@ -516,7 +548,7 @@ TWEEG = function(RUNTIME){
     function parse(input) {
         input = Lexer(input);
 
-        var context = {
+        var context = RUNTIME.merge(Object.create(NODES), {
             croak              : croak,
             delimited          : delimited,
             end_body_predicate : end_body_predicate,
@@ -530,7 +562,7 @@ TWEEG = function(RUNTIME){
             parse_until        : parse_until,
             peek               : peek,
             skip               : skip
-        };
+        });
 
         return parse_until(function(){ return false });
 
@@ -916,7 +948,7 @@ TWEEG = function(RUNTIME){
 
     function compile(node, options, env) {
         if (!env) env = new Environment();
-        var context = {
+        var context = RUNTIME.merge(Object.create(NODES), {
             root_env         : env,
             compile          : compile,
             compile_bool     : compile_bool,
@@ -931,14 +963,14 @@ TWEEG = function(RUNTIME){
             make_context     : make_context,
             add_dependency   : add_dependency,
             gensym           : gensym
-        };
+        });
         var autoescape = option("autoescape", "html");
         var dependencies = [];
         var globals = [];
         var functions = [];
         var inside_main = true;
         var exports = "";
-        var output_code = "var _self = { $main: " + compile_main() + "};";
+        var output_code = "var _self = $TR.t({ $main: " + compile_main() + "});";
         functions.forEach(function(f){
             output_code += f.code + ";";
         });

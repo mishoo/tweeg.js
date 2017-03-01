@@ -9,33 +9,12 @@ function compile(files, options) {
     var runtime = TWEEG_RUNTIME();
     var tweeg = TWEEG(runtime).init();
 
-    var code = `function $TWEEG($TR){
-var $BOOL = $TR.bool
-,$EMPTY = $TR.empty
-,$ESC = $TR.escape
-,$ESC_html = $TR.escape_html
-,$ESC_js = $TR.escape_js
-,$FILTER = $TR.filter
-,$FOR = $TR.for
-,$FUNC = $TR.func
-,$HASH = $TR.hash
-,$INCLUDE = $TR.include
-,$ITERABLE = $TR.iterable
-,$MERGE = $TR.merge
-,$NUMBER = $TR.number
-,$OP = $TR.operator
-,$OUT = $TR.out
-,$REGISTER = $TR.register
-,$SLICE = $TR.slice
-,$SPACELESS = $TR.spaceless
-,$STR = $TR.string
-;`;
+    var code = "";
 
     var compiled = {};
     files.forEach(compileFile);
 
-    code += "}";
-    return code;
+    return TWEEG.wrap_code(code);
 
     function compileFile(filename, source) {
         var fullname = replacePaths(filename);

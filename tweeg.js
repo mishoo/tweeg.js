@@ -511,9 +511,28 @@ TWEEG = function(RUNTIME){
         parse   : parse,
         Lexer   : Lexer,
         init    : init,
-        compile : compile
+        compile : compile,
+        deftag  : deftag
     };
     return instance;
+
+    function deftag(name, impl) {
+        if (typeof name == "object") {
+            RUNTIME.merge(CORE_TAGS, name);
+        } else {
+            CORE_TAGS[name] = impl;
+        }
+    }
+
+    function with_tags(tags, func) {
+        var save = CORE_TAGS;
+        try {
+            CORE_TAGS = RUNTIME.merge(Object.create(CORE_TAGS), tags);
+            return func();
+        } finally {
+            CORE_TAGS = save;
+        }
+    }
 
     function init() {
         var rx = "^(?:" + ALL_OPERATORS.sort(function(a, b){
@@ -563,6 +582,7 @@ TWEEG = function(RUNTIME){
             croak              : croak,
             delimited          : delimited,
             end_body_predicate : end_body_predicate,
+            input              : input,
             eof                : input.eof,
             is                 : is,
             looking_at         : looking_at,
@@ -572,7 +592,8 @@ TWEEG = function(RUNTIME){
             parse_next         : parse_next,
             parse_until        : parse_until,
             peek               : peek,
-            skip               : skip
+            skip               : skip,
+            with_tags          : with_tags
         });
 
         return parse_until(function(){ return false });
@@ -973,7 +994,8 @@ TWEEG = function(RUNTIME){
             with_escaping    : with_escaping,
             make_context     : make_context,
             add_dependency   : add_dependency,
-            gensym           : gensym
+            gensym           : gensym,
+            with_tags        : with_tags
         });
         var autoescape = option("autoescape", "html");
         var dependencies = [];
@@ -1375,6 +1397,7 @@ TWEEG = function(RUNTIME){
             next  : next,
             peek  : peek,
             ahead : ahead,
+            skip  : input.skip,
             eof   : eof,
             croak : croak
         };
@@ -1638,4 +1661,28 @@ TWEEG = function(RUNTIME){
         }
     }
 
+};
+
+TWEEG.wrap_code = function(code) {
+    return "function $TWEEG($TR){\
+var $BOOL = $TR.bool\
+,$EMPTY = $TR.empty\
+,$ESC = $TR.escape\
+,$ESC_html = $TR.escape_html\
+,$ESC_js = $TR.escape_js\
+,$FILTER = $TR.filter\
+,$FOR = $TR.for\
+,$FUNC = $TR.func\
+,$HASH = $TR.hash\
+,$INCLUDE = $TR.include\
+,$ITERABLE = $TR.iterable\
+,$MERGE = $TR.merge\
+,$NUMBER = $TR.number\
+,$OP = $TR.operator\
+,$OUT = $TR.out\
+,$REGISTER = $TR.register\
+,$SLICE = $TR.slice\
+,$SPACELESS = $TR.spaceless\
+,$STR = $TR.string\
+;" + code + "}";
 };

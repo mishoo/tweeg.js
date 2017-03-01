@@ -10,7 +10,7 @@ TWEEG_RUNTIME = function(){
     function Template() {}
 
     function replacePaths(filename) {
-        return filename.replace(/@[a-z0-9_]+/g, function(name){
+        return filename.replace(/@[a-z0-9_]+/ig, function(name){
             return PATHS[name.substr(1)];
         });
     }
@@ -98,7 +98,8 @@ TWEEG_RUNTIME = function(){
     }
 
     function length(thing) {
-        return thing.length;
+        if (length == null) return 0;
+        return String(thing).length;
     }
 
     var TR = {
@@ -128,6 +129,16 @@ TWEEG_RUNTIME = function(){
             raw: function(val) {
                 return safeString("" + val);
             },
+            "default": function(val, def) {
+                return val == null ? def : val;
+            },
+            join: function(array, separator) {
+                return array.join(separator);
+            },
+            split: function(string, separator) {
+                return string.split(separator);
+            },
+            round: Math.round,
             slice: slice,
             length: length
         },
@@ -209,6 +220,7 @@ TWEEG_RUNTIME = function(){
         },
 
         for: function(data, f) {
+            if (data == null) data = [];
             var is_array = Array.isArray(data);
             var keys = is_array ? null : Object.keys(data);
             var n = keys ? keys.length : data.length;

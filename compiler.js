@@ -49,7 +49,7 @@ function compile(files, options) {
     }
 
     function replacePaths(filename) {
-        return filename.replace(/@[a-z0-9_]+/g, function(name){
+        return filename.replace(/@[a-z0-9_]+/ig, function(name){
             return options.paths[name.substr(1)];
         });
     }

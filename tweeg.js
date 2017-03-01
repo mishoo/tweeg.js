@@ -254,9 +254,10 @@ TWEEG = function(RUNTIME){
             },
             compile: function(env, X, node) {
                 return "(" + node.defs.map(function(def){
+                    var value = X.compile(env, def.value);
                     env.set(def.name.value);
                     return X.output_name(def.name.value)
-                        + "=" + X.compile(env, def.value);
+                        + "=" + value;
                 }) + ",'')";
             }
         },
@@ -459,8 +460,9 @@ TWEEG = function(RUNTIME){
                     body: X.parse_until(X.end_body_predicate(/^endtrans$/, true))
                 };
             },
-            compile: function() {
-                return JSON.stringify("TRANS");
+            compile: function(env, X, node) {
+                // XXX: implement me
+                return X.compile(env, node.body);
             }
         }
     };
@@ -1330,9 +1332,9 @@ TWEEG = function(RUNTIME){
             if (node.right.type == NODE_TEST_OP) {
                 switch (node.right.operator) {
                   case "defined":
-                    return parens("typeof " + left + " != 'undefined'");
+                    return parens(left + "!=null");
                   case "divisible":
-                    return parens(left + "%" + compile(env, node.right.expr) + " == 0");
+                    return parens(left + "%" + compile(env, node.right.expr) + "==0");
                   case "empty":
                     return "$EMPTY(" + left + ")";
                   case "even":

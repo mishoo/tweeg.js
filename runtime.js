@@ -279,6 +279,11 @@ TWEEG_RUNTIME = function(){
 
         string: string,
 
+        spaceless: function(html) {
+            return html.replace(/^\s+|\s+$/g, "")
+                .replace(/>\s+</, "><");
+        },
+
         merge: Object.assign || function(a) {
             for (var i = 1; i < arguments.length; ++i) {
                 var b = arguments[i];
@@ -295,6 +300,7 @@ TWEEG_RUNTIME = function(){
 
         include: function(name, context, optional) {
             if (Array.isArray(name)) {
+                // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {
                     var ret = TR.exec(name[i], true, context);
                     if (ret != null) {
@@ -315,15 +321,15 @@ TWEEG_RUNTIME = function(){
             template.$name = name;
         },
 
-        get: function(name) {
-            name = name.replace(/^\/?/, "/");
-            return REGISTRY[name];
-        },
-
-        exec: function(template_name, args, ignore_missing) {
+        get: function(template_name) {
             if (CURRENT) {
                 template_name = TR.resolve(CURRENT.$name, template_name);
             }
+            template_name = template_name.replace(/^\/?/, "/");
+            return REGISTRY[template_name];
+        },
+
+        with: function(template_name, func, ignore_missing) {
             var tmpl = TR.get(template_name);
             if (!tmpl) {
                 if (ignore_missing) return null;
@@ -331,11 +337,16 @@ TWEEG_RUNTIME = function(){
             }
             var save = CURRENT;
             try {
-                CURRENT = tmpl;
-                return "" + tmpl.$main(args || {});
+                return func(CURRENT = tmpl);
             } finally {
                 CURRENT = save;
             }
+        },
+
+        exec: function(template_name, args, ignore_missing) {
+            return TR.with(template_name, function(tmpl){
+                return "" + tmpl.$main(args || {});
+            }, ignore_missing);
         },
 
         add_path: function(name, value) {

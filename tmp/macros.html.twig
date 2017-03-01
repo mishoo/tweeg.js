@@ -1,0 +1,14 @@
+{% import "utils.html.twig" as utils %}
+
+{% from "utils.html.twig" import cell as stuff, item as li %}
+
+{% macro link(url, text) %}
+  <a href="{{ url }}">{{ text }}</a>
+{% endmacro %}
+
+<p>{{ _self.link("http://lisperator.net/", "See my blog") }}</p>
+
+{{ utils.item("check this out") }}
+
+{{ stuff("crap") }}
+{{ li("mak") }}

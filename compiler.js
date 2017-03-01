@@ -27,6 +27,7 @@ var $BOOL = $TR.bool
 ,$OUT = $TR.out
 ,$REGISTER = $TR.register
 ,$SLICE = $TR.slice
+,$SPACELESS = $TR.spaceless
 ,$STR = $TR.string
 ;`;
 
@@ -73,10 +74,10 @@ var $BOOL = $TR.bool
             return options.paths[name.substr(1)];
         });
     }
-}
 
-function warn(msg) {
-    console.error(msg);
+    function warn(msg) {
+        console.error(msg);
+    }
 }
 
 exports.compile = compile;

@@ -306,12 +306,63 @@ TWEEG = function(RUNTIME){
             }
         },
 
+        "import": {
+            parse: function(X) {
+                var node = { template: X.parse_expression() };
+                X.skip(NODE_SYMBOL, "as");
+                node.name = X.skip(NODE_SYMBOL);
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                X.add_dependency(node.template);
+                env.def(node.name.value);
+                return "(" + X.output_name(node.name.value)
+                    + "=$TR.get(" + X.compile(env, node.template) + "),'')";
+            }
+        },
+
+        "from": {
+            parse: function(X) {
+                var node = { template: X.parse_expression(), defs: [] };
+                X.skip(NODE_SYMBOL, "import");
+                do {
+                    if (node.defs.length) X.next(); // skip comma
+                    var theirs = X.skip(NODE_SYMBOL), ours = theirs;
+                    if (X.looking_at(NODE_SYMBOL, "as")) {
+                        X.next();
+                        ours = X.skip(NODE_SYMBOL);
+                    }
+                    node.defs.push({ theirs: theirs, ours: ours });
+                } while (X.looking_at(NODE_PUNC, ","));
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                X.add_dependency(node.template);
+                var tmpl = X.gensym();
+                env.def(tmpl);
+                var code = node.defs.map(function(def){
+                    env.def(def.ours.value);
+                    return X.output_name(def.ours.value) + "=" + tmpl
+                        + "[" + JSON.stringify(X.output_name(def.theirs.value)) + "]";
+                });
+                return "(" + tmpl + "=$TR.get(" + X.compile(env, node.template) + "),"
+                    + code.join(",") + ",'')";
+            }
+        },
+
         "spaceless": {
             parse: function(X) {
                 X.skip(NODE_STAT_END);
+                // XXX: we could optimize big by dropping spaces at
+                // parse-time or compile-time, but for now this'll do.
                 return {
                     body: X.parse_until(X.end_body_predicate(/^endspaceless$/, true))
                 };
+            },
+            compile: function(env, X, node) {
+                return "$SPACELESS(" + X.compile(env, node.body) + ")";
             }
         },
 
@@ -335,19 +386,7 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                // try to figure out dependencies. when include is
-                // used with an expression, rather than string or
-                // array of strings, the user is out of luck.
-                (function add_dep(node){
-                    if (node.type == NODE_STR) {
-                        X.add_dependency(node.value);
-                    } else if (node.type == NODE_ARRAY) {
-                        node.body.forEach(add_dep);
-                    } else {
-                        // let's mark complex deps by just adding the AST node
-                        X.add_dependency(node);
-                    }
-                })(node.template);
+                X.add_dependency(node.template);
                 var args = [
                     X.compile(env, node.template)
                 ];
@@ -898,11 +937,12 @@ TWEEG = function(RUNTIME){
         var globals = [];
         var functions = [];
         var inside_main = true;
+        var exports = "";
         var output_code = "var _self = { $main: " + compile_main() + "};";
         functions.forEach(function(f){
             output_code += f.code + ";";
         });
-        output_code += "return _self";
+        output_code += exports + "return _self";
         return {
             code: "function(){" + output_code + "}",
             dependencies: dependencies
@@ -915,12 +955,17 @@ TWEEG = function(RUNTIME){
         }
 
         function add_export(name, code) {
-            output_code += "_self[" + JSON.stringify(name) + "]=" + code + ";";
+            exports += "_self[" + JSON.stringify(name) + "]=" + code + ";";
         }
 
-        function add_dependency(file) {
-            if (dependencies.indexOf(file) < 0) {
-                dependencies.push(file);
+        function add_dependency(node) {
+            if (node.type == NODE_STR) {
+                dependencies.push(node.value);
+            } else if (node.type == NODE_ARRAY) {
+                node.body.forEach(add_dependency);
+            } else {
+                // let's mark complex deps by just adding the AST node
+                dependencies.push(node);
             }
         }
 

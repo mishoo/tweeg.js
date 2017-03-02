@@ -102,6 +102,23 @@ TWEEG_RUNTIME = function(){
         return String(thing).length;
     }
 
+    function empty(val) {
+        if (val == "" || val == null || val === false) {
+            return true;
+        }
+        if (Array.isArray(val)) {
+            return !val.length;
+        }
+        if (typeof val == "object") {
+            for (var i in val) {
+                if (HOP.call(val, i))
+                    return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -130,7 +147,7 @@ TWEEG_RUNTIME = function(){
                 return safeString("" + val);
             },
             "default": function(val, def) {
-                return val == null ? def : val;
+                return empty(val) ? def : val;
             },
             join: function(array, separator) {
                 return array.join(separator);
@@ -263,22 +280,7 @@ TWEEG_RUNTIME = function(){
             return TR.out(result);
         },
 
-        empty: function(val) {
-            if (val == "" || val == null || val === false) {
-                return true;
-            }
-            if (Array.isArray(val)) {
-                return !val.length;
-            }
-            if (typeof val == "object") {
-                for (var i in val) {
-                    if (HOP.call(val, i))
-                        return false;
-                }
-                return true;
-            }
-            return false;
-        },
+        empty: empty,
 
         iterable: function(val) {
             // this covers arrays as well

@@ -1,8 +1,10 @@
 {
-    "name": "tweeg",
+    "name": "tweeg.js",
+    "version": "0.0.1",
     "description": "Twig -> JS compiler",
     "author": "Mihai Bazon <mihai.bazon@gmail.com> (http://lisperator.net/)",
     "license": "MIT",
+    "main": "compiler.js",
     "dependencies": {
         "minimist": "1.2.0",
         "uglify-js": "2.7.5"

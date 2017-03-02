@@ -7,7 +7,7 @@ require("./runtime.js");
 
 function compile(files, options) {
     function option(name, def) {
-        var val = options[name];
+        var val = options && options[name];
         return val === undefined ? def : val;
     }
 

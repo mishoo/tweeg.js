@@ -119,6 +119,16 @@ TWEEG_RUNTIME = function(){
         return false;
     }
 
+    function bool(val) {
+        if (Array.isArray(val)) {
+            return !!val.length;
+        }
+        if (val === "0") {
+            return false;
+        }
+        return !!val;
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -199,21 +209,10 @@ TWEEG_RUNTIME = function(){
                     return data.indexOf(thing) >= 0;
                 }
                 return HOP.call(data, thing);
-            },
-            "??": function(thing, def) {
-                return thing == null ? def : thing;
             }
         },
 
-        bool: function(val) {
-            if (Array.isArray(val)) {
-                return !!val.length;
-            }
-            if (val === "0") {
-                return false;
-            }
-            return !!val;
-        },
+        bool: bool,
 
         number: function(val) {
             if (typeof val == "number") {
@@ -305,7 +304,7 @@ TWEEG_RUNTIME = function(){
         string: string,
 
         spaceless: function(html) {
-            return html.replace(/^\s+|\s+$/g, "")
+            return string(html).replace(/^\s+|\s+$/g, "")
                 .replace(/>\s+</, "><");
         },
 

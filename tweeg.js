@@ -1207,10 +1207,16 @@ TWEEG = function(RUNTIME){
                 || (node.type == NODE_COND && is_boolean(node.left) && is_boolean(node.right));
         }
 
-        function compile_bool(env, node) {
-            return is_boolean(node)
-                ? compile(env, node)
-                : "$BOOL(" + compile(env, node) + ")";
+        function compile_bool(env, node, sym) {
+            if (sym) {
+                return is_boolean(node)
+                    ? parens(sym + "=" + compile(env, node))
+                    : "$BOOL(" + sym + "=" + compile(env, node) + ")";
+            } else {
+                return is_boolean(node)
+                    ? compile(env, node)
+                    : "$BOOL(" + compile(env, node) + ")";
+            }
         }
 
         function is_string(node) {
@@ -1276,10 +1282,15 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_binary(env, node) {
-            var op = node.operator;
+            var sym, op = node.operator;
             switch (op) {
+              case "??":
+                env.def(sym = gensym());
+                return "(" + sym + "=" + compile(env, node.left) + ")!=null?" + sym + ":" + compile(env, node.right);
+
               case "?:":
-                return compile_bool(env, node.left) + "||" + compile(env, node.right);
+                env.def(sym = gensym());
+                return compile_bool(env, node.left, sym) + "?" + sym + ":" + compile(env, node.right);
 
               case "or":
                 return compile_bool(env, node.left) + "||" + compile_bool(env, node.right);
@@ -1320,7 +1331,7 @@ TWEEG = function(RUNTIME){
               case "is not":
                 return "!" + compile_is(env, node);
 
-              case "matches": case "starts with": case "ends with": case "..": case "in": case "??":
+              case "matches": case "starts with": case "ends with": case "..": case "in":
                 return compile_operator(env, op, node);
             }
 

@@ -35,7 +35,7 @@ footer.html.twig  header.html.twig  index.html.twig
 Compile it:
 
 ```sh
-[~/tmp/twig] $ tweeg index.html.twig | uglifyjs -bc pure-getters=1,warnings=0 > templates.js
+[~/tmp/twig] $ tweeg -b index.html.twig > templates.js
 ```
 
 The output looks like this:
@@ -70,10 +70,10 @@ function $TWEEG($TR) {
 }
 ```
 
-It will be smaller, of course, if you enable name mangling and not pretty print:
+If we don't pass `-b` we get the [uglified](https://github.com/mishoo/UglifyJS2/) version, which is considerably smaller:
 
 ```sh
-[~/tmp/twig] $ tweeg index.html.twig | uglifyjs -mc pure-getters=1,warnings=0
+[~/tmp/twig] $ tweeg index.html.twig
 ```
 
 produces:
@@ -101,7 +101,7 @@ As you can see, the generated code contains a single function (`$TWEEG`).  It ta
 </script>
 ```
 
-When you need to render your template now, you can do:
+When you need to render your template, you can do:
 
 ```js
 div.innerHTML = TMPL.exec("index.html.twig", {
@@ -141,10 +141,99 @@ The runtime is missing a lot of filters / functions, but they are quite easy to 
 
 ## Runtime extension
 
-The [runtime](./runtime.js) currently has one global function (`TWEEG_RUNTIME`) that you need to call in order to get the runtime object.  To define your own functions and filters then, you just insert it in the appropriate propriety of that object.  Example:
+The [runtime](./runtime.js) currently has one global function (`TWEEG_RUNTIME`) that you need to call in order to get the runtime object.  To define your own functions and filters then, you just insert it in the appropriate property of that object.  Example:
 
 ```js
-
+var my_runtime = TWEEG_RUNTIME();
+my_runtime.filter.money = function(number) {
+    return "$" + number.toFixed(2) + " USD";
+}
 ```
+
+Then you will be able to display a price like this:
+
+```html.twig
+{{ product.price | money }}
+```
+
+To define functions, place them in `my_runtime.func`.
+
+## Using the API to compile templates
+
+```js
+var tweeg = require("tweeg.js");
+var code = tweeg.compile([
+    "templates/index.html.js",
+    "templates/foo.html.js"
+], options);
+```
+
+`tweeg.compile` takes an array of templates (must be file names; if relative, they must be accessible from the current directory).  The second argument is optional and it can contain:
+
+- `paths` — an object defining special substitutions for variables in `include` tags.  Details below.
+
+- `base` — a string specifying the base path to be cut off from template names in the output.
+
+- `beautify` — pass `true` if you want the result to be “readable” (well, notice the quotes).  By default it goes through UglifyJS.
+
+- `escape` — the escaping strategy (`"html"` by default).
+
+In our case, all `include` tags look like this:
+
+```html.twig
+{% include '@OurBundle/common/stuff/template.html.twig' %}
+```
+
+That's how they work on the server, and we don't have much choice.  So, to make those templates work on the client as well, we compile with these options (remember, compilation does not take place in the browser):
+
+```js
+{
+  paths: {
+    OurBundle: "/full/path/to/our/twig/templates"
+  },
+  base: "/full/path/to/our/twig/templates"
+}
+```
+
+In effect, the `paths` option allows Tweeg to properly locate `include`-ed templates, and the `base` option tells it to strip that part from the template names when registering them into the JS runtime, so in JS we can just say:
+
+```js
+runtime.exec("common/stuff/template.html.twig'")
+```
+
+without caring about any prefix.
+
+## Using the low-level API to compile one template
+
+Warning: here there'll be monsters.
+
+The actual meat in this package is in [tweeg.js](./tweeg.js).  That defines a single global function, `TWEEG`.  If you fear globals, now it's a good time to stop reading.
+
+`TWEEG` returns an object.  You must call it with a [runtime](./runtime.js) to instantiate a Tweeg parser/compiler.  The runtime also defines a global function (`TWEEG_RUNTIME`) that you must call in order to instantiate the runtime object. It's ugly:
+
+```js
+require("./tweeg");
+require("./runtime");
+var runtime = TWEEG_RUNTIME();
+var tweeg = TWEEG(runtime);
+tweeg.init();
+```
+
+and now you're all set.  Here's the “hello world” now:
+
+```js
+var ast = tweeg.parse("<h1>{{ title }}</h1>");
+var tmpl = tweeg.compile(ast);
+var code = TWEEG.wrap_code("return " + tmpl.code);
+var func = new Function("return " + code)()(runtime)();   // yes, really
+var result = func.$main({ title: "Hello World" });
+console.log(result);                                      // <p>Hello World</p>
+```
+
+To briefly describe what happens:
+
+- `tweeg.parse` takes a template (as a string) and returns an [abstract syntax tree](http://lisperator.net/pltut/parser/) (AST) for it.
+
+- XXX: continue
 
 ## Parser/compiler extension

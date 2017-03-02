@@ -6,6 +6,13 @@ require("./tweeg.js");
 require("./runtime.js");
 
 function compile(files, options) {
+    function option(name, def) {
+        var val = options[name];
+        return val === undefined ? def : val;
+    }
+
+    var paths = option("paths", {});
+    var base = option("base", null);
     var runtime = TWEEG_RUNTIME();
     var tweeg = TWEEG(runtime).init();
 
@@ -40,13 +47,11 @@ function compile(files, options) {
         }
         compiled[fullname] = true;
 
-        var template_name = options.base
-            ? path.relative(options.base, fullname)
-            : filename;
+        var template_name = base ? path.relative(base, fullname) : filename;
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast = tweeg.parse(tmpl);
         var result = tweeg.compile(ast, {
-            autoescape: options.escape
+            autoescape: option("escape", "html")
         });
 
         result.dependencies.forEach(function(file){
@@ -62,7 +67,7 @@ function compile(files, options) {
 
     function replacePaths(filename) {
         return filename.replace(/@[a-z0-9_]+/ig, function(name){
-            return options.paths[name.substr(1)];
+            return paths[name.substr(1)];
         });
     }
 

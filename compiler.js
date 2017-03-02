@@ -13,6 +13,7 @@ function compile(files, options) {
 
     var paths = option("paths", {});
     var base = option("base", null);
+    var beautify = option("beautify", false);
     var runtime = TWEEG_RUNTIME();
     var tweeg = TWEEG(runtime).init();
 
@@ -22,18 +23,23 @@ function compile(files, options) {
     files.forEach(compileFile);
 
     code = TWEEG.wrap_code(code);
-    var ugly = UglifyJS.minify([ code ], {
-        fromString: true,
-        warnings: false,
-        compress: {
-            pure_getters : true,
-            unsafe       : true,
-            unsafe_comps : true,
-            hoist_vars   : true,
-            pure_funcs   : ("$OUT,$ESC,$ESC_html,$ESC_js,$FILTER,$HASH,$MERGE,$NUMBER,$STR,$EMPTY,$SLICE").split(/,/)
-        }
-    });
-    return ugly.code;
+    if (beautify) {
+        var ast = UglifyJS.parse(code);
+        return ast.print_to_string({ beautify: true });
+    } else {
+        var ugly = UglifyJS.minify([ code ], {
+            fromString: true,
+            warnings: false,
+            compress: {
+                pure_getters : true,
+                unsafe       : true,
+                unsafe_comps : true,
+                hoist_vars   : true,
+                pure_funcs   : ("$OUT,$ESC,$ESC_html,$ESC_js,$FILTER,$HASH,$MERGE,$NUMBER,$STR,$EMPTY,$SLICE").split(/,/)
+            }
+        });
+        return ugly.code;
+    }
 
     function compileFile(filename, source) {
         var fullname = replacePaths(filename);

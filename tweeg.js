@@ -1320,7 +1320,7 @@ TWEEG = function(RUNTIME){
               case "is not":
                 return "!" + compile_is(env, node);
 
-              case "matches": case "starts with": case "ends with": case "..": case "in":
+              case "matches": case "starts with": case "ends with": case "..": case "in": case "??":
                 return compile_operator(env, op, node);
             }
 

@@ -199,6 +199,9 @@ TWEEG_RUNTIME = function(){
                     return data.indexOf(thing) >= 0;
                 }
                 return HOP.call(data, thing);
+            },
+            "??": function(thing, def) {
+                return thing == null ? def : thing;
             }
         },
 

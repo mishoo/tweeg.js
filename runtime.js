@@ -22,9 +22,6 @@ TWEEG_RUNTIME = function(){
         toString: function() {
             return this.value + "";
         }
-        // valueOf: function() {
-        //     return this.toString();
-        // }
     };
 
     var HOP = Object.prototype.hasOwnProperty;
@@ -129,6 +126,86 @@ TWEEG_RUNTIME = function(){
         return !!val;
     }
 
+    var merge = Object.assign || function(a) {
+        for (var i = 1; i < arguments.length; ++i) {
+            var b = arguments[i];
+            if (b != null) {
+                for (var j in b) {
+                    if (HOP.call(b, j)) {
+                        a[j] = b[j];
+                    }
+                }
+            }
+        }
+        return a;
+    };
+
+    function batch(array, size, fill) {
+        var result = [];
+        for (var i = 0; i < array.length; i += size) {
+            var part = array.slice(i, size);
+            if (fill != null) {
+                while (part.length < size)
+                    part.push(fill);
+            }
+            result.push(part);
+        }
+        return result;
+    }
+
+    function first(thing) {
+        if (thing == null) return null;
+        if (Array.isArray(thing)) return thing[0];
+        if (typeof thing == "string") return thing.charAt(0);
+        for (var i in thing) if (HOP.call(thing, i)) return thing[i];
+    }
+
+    function last(thing) {
+        if (thing == null) return null;
+        if (Array.isArray(thing)) return thing[thing.length - 1];
+        if (typeof thing == "string") return thing.charAt(thing.length - 1);
+        var keys = Object.keys(thing);
+        if (keys.length) return thing[keys.length - 1];
+    }
+
+    function keys(thing) {
+        return Object.keys(thing);
+    }
+
+    function trim(thing) {
+        return String(thing).trim();
+    }
+
+    function sort(thing) {
+        if (Array.isArray(thing))
+            return thing.slice().sort();
+        var result = {};
+        Object.keys(thing).map(function(key){
+            return { key: key, val: thing[key] };
+        }).sort(function(a, b){
+            return a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+        }).forEach(function(x){
+            result[x.key] = x.val;
+        });
+        return result;
+    }
+
+    function range(beg, end, step) {
+        if (step == null) step = 1;
+        else if (step < 0) step = -step;
+        var i, a;
+        if (end >= beg) {
+            for (i = beg, a = []; i <= end; i += step) {
+                a.push(i);
+            }
+        } else {
+            for (i = beg, a = []; i >= end; i -= step) {
+                a.push(i);
+            }
+        }
+        return a;
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -140,6 +217,7 @@ TWEEG_RUNTIME = function(){
             cycle: function(array, index) {
                 return array[index % array.length];
             },
+            range: range,
             slice: slice
         },
 
@@ -165,8 +243,20 @@ TWEEG_RUNTIME = function(){
             split: function(string, separator) {
                 return string.split(separator);
             },
+            merge: function(a, b) {
+                if (Array.isArray(a) && Array.isArray(b))
+                    return a.concat(b);
+                return merge(a, b);
+            },
+            keys: keys,
+            batch: batch,
+            first: first,
+            last: last,
+            trim: trim,
+            abs: Math.abs,
             round: Math.round,
             slice: slice,
+            sort: sort,
             length: length
         },
 
@@ -191,19 +281,7 @@ TWEEG_RUNTIME = function(){
                 var pos = str.lastIndexOf(x);
                 return pos + x.length == str.length;
             },
-            "..": function(beg, end) {
-                var i, a;
-                if (end >= beg) {
-                    for (i = beg, a = []; i <= end; ++i) {
-                        a.push(i);
-                    }
-                } else {
-                    for (i = beg, a = []; i >= end; --i) {
-                        a.push(i);
-                    }
-                }
-                return a;
-            },
+            "..": range,
             "in": function(thing, data) {
                 if (Array.isArray(data) || typeof data == "string") {
                     return data.indexOf(thing) >= 0;
@@ -308,19 +386,7 @@ TWEEG_RUNTIME = function(){
                 .replace(/>\s+</, "><");
         },
 
-        merge: Object.assign || function(a) {
-            for (var i = 1; i < arguments.length; ++i) {
-                var b = arguments[i];
-                if (b != null) {
-                    for (var j in b) {
-                        if (HOP.call(b, j)) {
-                            a[j] = b[j];
-                        }
-                    }
-                }
-            }
-            return a;
-        },
+        merge: merge,
 
         include: function(name, context, optional) {
             if (Array.isArray(name)) {

@@ -131,13 +131,27 @@ The following statement tags are implemented, with the same semantics as in Twig
 
 - [`with`](http://twig.sensiolabs.org/doc/2.x/tags/with.html)
 
+- [`filter`](http://twig.sensiolabs.org/doc/2.x/tags/filter.html)
+
 - [`verbatim`](http://twig.sensiolabs.org/doc/2.x/tags/verbatim.html)
 
-TODO: [block](http://twig.sensiolabs.org/doc/2.x/tags/block.html), [extends](http://twig.sensiolabs.org/doc/2.x/tags/extends.html), [use](http://twig.sensiolabs.org/doc/2.x/tags/use.html), [embed](http://twig.sensiolabs.org/doc/2.x/tags/embed.html), [filter](http://twig.sensiolabs.org/doc/2.x/tags/filter.html).  We have the infrastructure to easily implement all of these.
+TODO: [block](http://twig.sensiolabs.org/doc/2.x/tags/block.html), [extends](http://twig.sensiolabs.org/doc/2.x/tags/extends.html), [use](http://twig.sensiolabs.org/doc/2.x/tags/use.html), [embed](http://twig.sensiolabs.org/doc/2.x/tags/embed.html).  We have the infrastructure to easily implement all of these.
 
-At expression level, we should support all of Twig except the [constant](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator.
+## Known issues / differences from Twig
 
-The runtime is missing a lot of filters / functions, but they are quite easy to implement.  Expect updates soon.
+Except for the TODO above, which at some point will be implemented, we differ from PHP Twig in a few more aspects:
+
+- The runtime is missing a lot of standard filters/functions.  We don't guarantee that all Twig filters will be available in this particular package, but it's easy to add new filters in your own code (see next section).
+
+- No support for named arguments in filters/functions.  Syntax like this is invalid: `{{ include('template.html', with_context = false) }}` (in fact, we don't yet have a `include` function either).
+
+- No [`is constant`](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator.
+
+- No support for the `_context` variable.  In the compiled code, template variables are simple JS variables (which also means that you must be careful about variable names, they should not clash with standard JS keywords).  It's possible that I change my mind about this item.
+
+- The `{% with scope %}` tag is implemented with the standard JS `with` keyword.  This will prevent name minification in the compiled code and will make your template run a bit slower — in short, do not use `with` with an argument.  It's safe to use it without an argument in order to create a nested scope.
+
+- … probably more, please report issues if you find them.  We strive for reasonably good compatibility with PHP Twig, because we need to run the *same* templates both on server and on client.
 
 ## Runtime extension
 
@@ -205,21 +219,25 @@ without caring about any prefix.
 
 ## Using the low-level API to compile one template
 
-Warning: here there'll be monsters.
+Warning: this API is kinda ugly, but it's not intended for public consumption.  Still, you have to understand it if you need to implement syntactic extensions (i.e. custom tags).
 
-The actual meat in this package is in [tweeg.js](./tweeg.js).  That defines a single global function, `TWEEG`.  If you fear globals, now it's a good time to stop reading.
+You've already met the [`runtime`](./runtime.js).  It defines a single global function (`TWEEG_RUNTIME`) that you must call in order to instantiate a runtime object (notice, no `new` required).
 
-`TWEEG` returns an object.  You must call it with a [runtime](./runtime.js) to instantiate a Tweeg parser/compiler.  The runtime also defines a global function (`TWEEG_RUNTIME`) that you must call in order to instantiate the runtime object. It's ugly:
+The parser and compiler are defined in [`tweeg.js`](./tweeg.js).  Again, this file defines one global function (`TWEEG`) that will return an object containing methods to parse and compile a single template.  Both this and the runtime are written in ES5 and without any dependencies, so they can run in the browser unchanged (hence the global functions instead of using `exports`).
+
+Here's some sample usage:
 
 ```js
 require("./tweeg");
 require("./runtime");
-var runtime = TWEEG_RUNTIME();
-var tweeg = TWEEG(runtime);
-tweeg.init();
+var runtime = TWEEG_RUNTIME(); // instantiate the runtime
+var tweeg = TWEEG(runtime);    // instantiate the compiler
+tweeg.init();                  // initialize the compiler
 ```
 
-and now you're all set.  Here's the “hello world” now:
+The reason we have two steps for creating the compiler (instantiate, then init) is because at some point we might allow implementing custom expressions (operators).  But for now this isn't really supported.
+
+Next, let's compile a simple template:
 
 ```js
 var ast = tweeg.parse("<h1>{{ title }}</h1>");
@@ -234,6 +252,176 @@ To briefly describe what happens:
 
 - `tweeg.parse` takes a template (as a string) and returns an [abstract syntax tree](http://lisperator.net/pltut/parser/) (AST) for it.
 
-- XXX: continue
+- `tweeg.compile` takes an AST and produces JavaScript code, as a string, containing a single function for that template.  That function is expected to be called in an environment containing several variables (see `TWEEG.wrap_code`).
+
+- `TWEEG.wrap_code` embeds the given code in another function that defines the required variables.  This function takes a single argument (the runtime object).
+
+- To instantiate the actual template, we must call all these functions, making sure we pass the runtime to the function resulted from `TWEEG.wrap_code`.
+
+- Finally, an instantiated template is a simple object having a `$main` method.  Call that with the template arguments in order to run the template.
+
+It could also help to take a look in the high-level “compiler”​ (sorry for the name confusion, but you know, naming things is one of the most difficult problems in computer science).  See it in [`compiler.js`](./compiler.js).  It uses the low-level API in order to compile one or more templates together.
 
 ## Parser/compiler extension
+
+If you reached this far I will assume that you are comfortable reading source code.  See how our `CORE_TAGS` are implemented in [`tweeg.js`](./tweeg.js).  Here is a (non-trivial) example of a custom tag implemented outside our core module.
+
+Let's say we wanted to implement a `switch` tag that works like this:
+
+```html.twig
+{% switch foo %}
+  {% case 1 %}
+    Got one!
+  {% case 2 %}
+    Got two!
+  {% default %}
+    Dunno what gives
+{% endswitch %}
+```
+
+You can notice that Tweeg does not require each tag to end with `endtag`.  It all depends on how you want to implement your custom tags.  Here's the commented code, hopefully the comments are informative enough.
+
+```js
+// as seen before, initialize the runtime and the Tweeg object
+var runtime = TWEEG_RUNTIME();
+var tweeg = TWEEG(runtime);
+tweeg.init();
+
+// `deftag` is the main way to define a custom tag
+tweeg.deftag({
+    "switch": {
+
+        // the parser receives a single argument `X` (because naming
+        // things is hard) which contains parser utilities.
+        parse: function(X) {
+            var expr = X.parse_expression(); // parse the switch expression
+            X.skip(X.NODE_STAT_END);         // skip the end token, `%}`
+
+            // this utility defines a predicate suitable for
+            // X.parse_until, see below.  If we pass a second `true`
+            // argument it will skip the encountered tag symbol,
+            // otherwise it leaves it in the token stream.
+            var end = X.end_body_predicate(/^(?:case|default|endswitch)$/);
+
+            // skip to the first tag that we recognize
+            X.parse_until(end);
+
+            var cases = [];     // collect the switch cases here
+            var defau = null;   // the `default` section
+
+            // X.eof() tells us if the token stream is over.  Use this
+            // rather than `while(true)` to avoid infinite loops for
+            // syntactically invalid input (e.g. unterminated tag)
+            while (!X.eof()) {
+                var sym = X.skip(X.NODE_SYMBOL);
+                if (sym.value == "case") {
+                    cases.push({
+                        expr: X.parse_expression(),     // the case expression
+                        body: (X.skip(X.NODE_STAT_END), // skip the end token
+                               X.parse_until(end))      // fetch the case body
+                    });
+                }
+                else if (sym.value == "default") {
+                    X.skip(X.NODE_STAT_END);            // skip the end token
+                    defau = X.parse_until(end);         // default only has body
+                }
+                else if (sym.value == "endswitch") {
+                    break;      // we're done
+                }
+            }
+
+            // finally, skip the end token and return our AST node
+            X.skip(X.NODE_STAT_END);
+
+            // there is no need to mark it as a “switch” node, Tweeg
+            // internally takes care of this.
+            return { expr: expr, cases: cases, defau: defau };
+        },
+
+        // The compiler will receive three arguments: an environment
+        // `env`, an object with compiler utilities `X`, and the node
+        // produced by our parser above.
+        //
+        // It must return a string of JS code that executes our node.
+        // This must be a single JS expression (no statements
+        // allowed!).  If you need to execute statements, you can
+        // embed everything in an IIFE.
+        compile: function(env, X, node) {
+            // to keep things simple, we will compile our `switch`
+            // node as a series of conditional expressions, using the
+            // ternary operator.  Essentially, we will produce this:
+            //
+            // foo==1?"Got one":foo==2?"Got two":"Dunno what gives"
+
+            // but first, just in case we have no `case`-s:
+            if (node.cases.length == 0) {
+                if (node.defau) {
+                    // looks like we only have a default tag; the
+                    // expression is ignored in this case and just
+                    // compile the default body.
+                    return X.compile(env, node.defau);
+                }
+                return "''"; // there is nothing here, return empty string
+            }
+
+            // If we have multiple cases, we'll have to compare the
+            // expression with a value for each case.  We must be
+            // careful to not the compile the expression multiple
+            // times, because then it will *run* multiple times.
+            // Therefore we invent a variable name to keep the value
+            // of the expression (it's guaranteed not to clash with
+            // template variables).  Welcome to Lisp!
+            var sym = X.gensym();
+            env.def(sym); // Tweeg will take care to output a `var` for it
+
+            // prelude: store the switch expression in this variable
+            var code = sym + "=" + X.compile(env, node.expr) + ",";
+
+            // since Tweeg already knows how to compile ternary nodes,
+            // we can cheat by generating such a node for our switch.
+            // That's easier than producing JS as a string.  Here's a
+            // piece of recursive magic.
+            var body = (function loop(i){
+                if (i < node.cases.length) {
+                    // if we still have at least one case, return a
+                    // ternay node (NODE_COND stands for conditional)
+                    return {
+                        type: X.NODE_COND,
+                        cond: {
+                            type: X.NODE_BINARY,
+                            operator: "==",
+                            left: { type: X.NODE_VAR, name: sym },
+                            right: node.cases[i].expr
+                        },
+                        then: node.cases[i].body,
+                        else: loop(i + 1) // loop for the next cases
+                    };
+                } else {
+                    // we're done, either return the default value or
+                    // an empty string.
+                    return node.defau || X.EMPTY_STRING;
+                }
+            })(0);
+
+            // now compile the node that we just produced
+            code += X.compile(env, body);
+
+            // and parenthesize everything, just in case
+            return "(" + code + ")";
+        }
+    }
+});
+
+// test
+var fs = require("fs");
+
+var test = fs.readFileSync("switch.html.twig", "utf8");
+var ast = tweeg.parse(test);
+//console.log(JSON.stringify(ast, null, 2));
+var result = tweeg.compile(ast);
+console.log(result.code);
+```
+
+## License
+
+MIT

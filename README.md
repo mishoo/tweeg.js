@@ -366,11 +366,11 @@ tweeg.deftag({
 
             // If we have multiple cases, we'll have to compare the
             // expression with a value for each case.  We must be
-            // careful to not the compile the expression multiple
-            // times, because then it will *run* multiple times.
-            // Therefore we invent a variable name to keep the value
-            // of the expression (it's guaranteed not to clash with
-            // template variables).  Welcome to Lisp!
+            // careful to not compile the expression multiple times,
+            // because then it will *run* multiple times.  Therefore
+            // we invent a variable name to keep the value of the
+            // expression (it's guaranteed not to clash with template
+            // variables).  Welcome to Lisp!
             var sym = X.gensym();
             env.def(sym); // Tweeg will take care to output a `var` for it
 
@@ -384,7 +384,7 @@ tweeg.deftag({
             var body = (function loop(i){
                 if (i < node.cases.length) {
                     // if we still have at least one case, return a
-                    // ternay node (NODE_COND stands for conditional)
+                    // ternary node (NODE_COND stands for conditional)
                     return {
                         type: X.NODE_COND,
                         cond: {
@@ -406,7 +406,7 @@ tweeg.deftag({
             // now compile the node that we just produced
             code += X.compile(env, body);
 
-            // and parenthesize everything, just in case
+            // parenthesize the result, just in case
             return "(" + code + ")";
         }
     }

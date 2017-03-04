@@ -69,6 +69,7 @@ TWEEG = function(RUNTIME){
     var NODE_TEST_OP      = "test_op";
     var NODE_ESCAPE       = "escape";
     var NODE_SLICE        = "slice";
+    var NODE_VAR          = "var";
 
     /* -----[ Lexer modes ]----- */
 
@@ -76,6 +77,8 @@ TWEEG = function(RUNTIME){
     var LEX_INTERPOL    = 2; // text in interpolated string
     var LEX_EXPRESSION  = 3; // expression in {{ }} or {% %}
     var LEX_INT_EXPR    = 4; // expression in #{ } inside interpolated string
+
+    var EMPTY_STRING = { type: NODE_STR, value: "" };
 
     var NODES = {
         NODE_TEXT        : NODE_TEXT,
@@ -106,7 +109,10 @@ TWEEG = function(RUNTIME){
         NODE_STAT        : NODE_STAT,
         NODE_TEST_OP     : NODE_TEST_OP,
         NODE_ESCAPE      : NODE_ESCAPE,
-        NODE_SLICE       : NODE_SLICE
+        NODE_SLICE       : NODE_SLICE,
+        NODE_VAR         : NODE_VAR,
+
+        EMPTY_STRING     : EMPTY_STRING
     };
 
     /* -----[ core tag parsers ]----- */
@@ -500,8 +506,6 @@ TWEEG = function(RUNTIME){
             }
         }
     };
-
-    var EMPTY_STRING = { type: NODE_STR, value: "" };
 
     /* -----[ Das Environment ]----- */
 
@@ -1144,8 +1148,13 @@ TWEEG = function(RUNTIME){
               case NODE_CALL        : return compile_call(env, node);
               case NODE_ESCAPE      : return compile_escape(env, node);
               case NODE_SLICE       : return compile_slice(env, node);
+              case NODE_VAR         : return compile_var(env, node);
             }
             throw new Error("Cannot compile node " + JSON.stringify(node));
+        }
+
+        function compile_var(env, node) {
+            return node.name;   // internal variables (gensym)
         }
 
         function parens(str) {

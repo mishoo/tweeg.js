@@ -131,6 +131,40 @@ TWEEG = function(RUNTIME){
             }
         },
 
+        "filter": {
+            parse: function(X) {
+                function parse_filter() {
+                    return {
+                        name: X.skip(NODE_SYMBOL),
+                        args: (X.looking_at(NODE_PUNC, "(")
+                               ? X.delimited("(", ")", ",", X.parse_expression)
+                               : [])
+                    };
+                }
+                var node = {
+                    filters: [ parse_filter() ]
+                };
+                while (X.looking_at(NODE_OPERATOR, "|")) {
+                    X.next();
+                    node.filters.push(parse_filter());
+                }
+                X.skip(NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^endfilter$/, true));
+                return node;
+            },
+            compile: function(env, X, node) {
+                var expr = node.filters.reduce(function(expr, filter){
+                    return {
+                        type: NODE_FILTER,
+                        name: filter.name,
+                        args: filter.args,
+                        expr: expr
+                    };
+                }, node.body);
+                return X.compile(env, expr);
+            }
+        },
+
         "if": {
             parse: function parse_if(X) {
                 var node = {
@@ -870,7 +904,7 @@ TWEEG = function(RUNTIME){
         function maybe_filter(expr) {
             if (looking_at(NODE_OPERATOR, "|")) {
                 next();
-                var sym = skip(NODE_SYMBOL).value;
+                var sym = skip(NODE_SYMBOL);
                 var args = looking_at(NODE_PUNC, "(")
                     ? delimited("(", ")", ",", parse_expression)
                     : [];
@@ -1151,7 +1185,7 @@ TWEEG = function(RUNTIME){
 
         function compile_escape(env, node) {
             if (autoescape) {
-                if (node.expr.type == NODE_FILTER && node.expr.name == "raw") {
+                if (node.expr.type == NODE_FILTER && node.expr.name.value == "raw") {
                     return compile(env, node.expr.expr);
                 }
             }
@@ -1190,7 +1224,7 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_filter(env, node) {
-            var code = "$FILTER[" + JSON.stringify(node.name)
+            var code = "$FILTER[" + JSON.stringify(node.name.value)
                 + "](" + compile(env, node.expr);
             if (node.args.length) {
                 code += "," + node.args.map(function(item){

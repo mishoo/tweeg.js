@@ -226,10 +226,10 @@ TWEEG_RUNTIME = function(){
                 return JSON.stringify(val, null, indent);
             },
             e: function(val) {
-                return htmlEscape("" + val);
+                return htmlEscape(string(val));
             },
             escape: function(val, strategy) {
-                return escape("" + val, strategy);
+                return escape(string(val), strategy);
             },
             raw: function(val) {
                 return safeString("" + val);
@@ -240,8 +240,14 @@ TWEEG_RUNTIME = function(){
             join: function(array, separator) {
                 return array.join(separator);
             },
-            split: function(string, separator) {
-                return string.split(separator);
+            split: function(thing, separator) {
+                return string(thing).split(separator);
+            },
+            upper: function(thing) {
+                return string(thing).toUpperCase();
+            },
+            lower: function(thing) {
+                return string(thing).toLowerCase();
             },
             merge: function(a, b) {
                 if (Array.isArray(a) && Array.isArray(b))

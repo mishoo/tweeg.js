@@ -1,4 +1,0 @@
-- add parens only for operators (unary / binary / ternary)
-- use compile instead of JSON.stringify in make_hash
-- rework macros to support import / _self, as per Twig (sucks, but oh well)
-- related, we should probably support _context - use objects for vars :-/

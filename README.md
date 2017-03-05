@@ -4,6 +4,12 @@
 
 Tweeg takes one or more [Twig](http://twig.sensiolabs.org/) templates as input, and produces a single minified JavaScript file that you can load with a `<script>` tag (along with a very small [runtime](./runtime.js)) in order to be able to render those templates on the client.  Rendering will be quite fast, since there's no parsing/compilation needed at that time.  In other words, your Twig templates become executable JavaScript.  The [parser and compiler](./tweeg.js) are not needed in the browser, unless for some reason you need to generate templates dynamically.
 
+## Install from NPM
+
+```sh
+npm install tweeg.js
+```
+
 ## Sample usage
 
 ```sh

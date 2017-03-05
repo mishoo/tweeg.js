@@ -2,6 +2,10 @@
     "name": "tweeg.js",
     "version": "0.0.1",
     "description": "Twig -> JS compiler",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mishoo/tweeg.js.git"
+    },
     "author": "Mihai Bazon <mihai.bazon@gmail.com> (http://lisperator.net/)",
     "license": "MIT",
     "main": "compiler.js",

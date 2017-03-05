@@ -72,17 +72,6 @@ tweeg.deftag({
             //
             // foo==1?"Got one":foo==2?"Got two":"Dunno what gives"
 
-            // but first, just in case we have no `case`-s:
-            if (node.cases.length == 0) {
-                if (node.defau) {
-                    // looks like we only have a default tag; the
-                    // expression is ignored in this case and just
-                    // compile the default body.
-                    return X.compile(env, node.defau);
-                }
-                return "''"; // there is nothing here, return empty string
-            }
-
             // If we have multiple cases, we'll have to compare the
             // expression with a value for each case.  We must be
             // careful to not compile the expression multiple times,

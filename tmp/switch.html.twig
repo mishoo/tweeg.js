@@ -1,8 +1,17 @@
 {% switch longOperation() %}
-{% case foo1() %}
-Got one!
-{% case foo2() %}
-Got two!
-{% default %}
-Dunno what gives
+  {% case foo1() %}
+    Got one!
+
+  {% case foo2() %}
+    Got two!
+
+  {% case nested %}
+    {% switch x %}
+      {% case 1 %} x = 1
+      {% case 2 %} x = 2
+      {% default %} unknown
+    {% endswitch %}
+
+  {% default %}
+    Dunno what gives
 {% endswitch %}

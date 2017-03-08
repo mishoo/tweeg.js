@@ -639,14 +639,10 @@ TWEEG = function(RUNTIME){
         return parse_until(function(){ return false });
 
         function peek() {
-            var tok;
-            while ((tok = input.peek()) && tok.type == NODE_COMMENT)
-                input.next();
-            return tok;
+            return input.peek();
         }
 
         function next() {
-            peek();
             return input.next();
         }
 
@@ -1630,7 +1626,8 @@ TWEEG = function(RUNTIME){
                         return token(NODE_STAT_BEG);
                     }
                 } else if (tag == "{#") {
-                    return token(NODE_COMMENT, skip_comment());
+                    skip_comment();
+                    return read_token();
                 } else {
                     return croak("Attention: there is a hole in the time/space continuum");
                 }

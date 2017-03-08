@@ -20,7 +20,9 @@ function compile(files, options) {
     var code = "";
 
     var compiled = {};
-    files.forEach(compileFile);
+    files.forEach(function(file){
+        compileFile(file);
+    });
 
     code = TWEEG.wrap_code(code);
     if (beautify) {

@@ -14,8 +14,9 @@ function compile(files, options) {
     var paths = option("paths", {});
     var base = option("base", null);
     var beautify = option("beautify", false);
+    var extend = option("extend", null);
     var runtime = option("runtime", TWEEG_RUNTIME());
-    var tweeg = TWEEG(runtime).init();
+    var tweeg = option("tweeg", TWEEG(runtime).init());
 
     var code = "";
 

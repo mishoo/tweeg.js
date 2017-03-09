@@ -507,6 +507,8 @@ TWEEG = function(RUNTIME){
         }
     };
 
+    var COMPILER_HOOKS = {};
+
     /* -----[ Das Environment ]----- */
 
     function Environment(parent) {
@@ -547,13 +549,14 @@ TWEEG = function(RUNTIME){
 
     /* -----[ exports ]----- */
 
-    var instance = {
+    var instance = RUNTIME.merge(Object.create(NODES), {
         parse   : parse,
         Lexer   : Lexer,
         init    : init,
         compile : compile,
-        deftag  : deftag
-    };
+        deftag  : deftag,
+        defhook : defhook
+    });
     return instance;
 
     function deftag(name, impl) {
@@ -561,6 +564,14 @@ TWEEG = function(RUNTIME){
             RUNTIME.merge(CORE_TAGS, name);
         } else {
             CORE_TAGS[name] = impl;
+        }
+    }
+
+    function defhook(node, handler) {
+        if (typeof node == "object") {
+            RUNTIME.merge(COMPILER_HOOKS, node);
+        } else {
+            COMPILER_HOOKS[node] = handler;
         }
     }
 
@@ -633,7 +644,8 @@ TWEEG = function(RUNTIME){
             parse_until        : parse_until,
             peek               : peek,
             skip               : skip,
-            with_tags          : with_tags
+            with_tags          : with_tags,
+            is_constant        : is_constant
         });
 
         return parse_until(function(){ return false });
@@ -1030,6 +1042,7 @@ TWEEG = function(RUNTIME){
             with_escaping    : with_escaping,
             make_context     : make_context,
             add_dependency   : add_dependency,
+            is_constant      : is_constant,
             gensym           : gensym,
             with_tags        : with_tags
         });
@@ -1129,6 +1142,13 @@ TWEEG = function(RUNTIME){
         function _compile(env, node) {
             if (is_constant(node)) {
                 return JSON.stringify(node.value);
+            }
+            var handler = COMPILER_HOOKS[node.type];
+            if (handler) {
+                var code = handler(env, context, node);
+                if (code != null) {
+                    return code;
+                }
             }
             switch (node.type) {
               case NODE_PROG        : return compile_prog(env, node);

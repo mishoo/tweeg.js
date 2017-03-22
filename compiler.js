@@ -57,6 +57,7 @@ function compile(files, options) {
         compiled[fullname] = true;
 
         var template_name = base ? path.relative(base, fullname) : filename;
+        template_name = template_name.replace(/\\/g, "/");
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast = tweeg.parse(tmpl);
         var result = tweeg.compile(ast, {

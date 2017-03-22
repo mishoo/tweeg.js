@@ -468,6 +468,10 @@ TWEEG_RUNTIME = function(){
                 }
             });
             return src.join("/");
+        },
+
+        index: function(obj, prop) {
+            return obj == null ? null : obj[prop];
         }
     };
 

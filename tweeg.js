@@ -1245,7 +1245,8 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_index(env, node) {
-            return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
+            return "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
+            //return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
         }
 
         function compile_filter(env, node) {
@@ -1757,5 +1758,6 @@ var $BOOL = $TR.bool\
 ,$SLICE = $TR.slice\
 ,$SPACELESS = $TR.spaceless\
 ,$STR = $TR.string\
+,$INDEX = $TR.index\
 ;" + code + "}";
 };

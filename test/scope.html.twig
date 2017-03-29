@@ -1,0 +1,67 @@
+-----FILE
+{% set foo = 15 %}
+{% for i in [1] %}
+  {% set foo = 20 %}
+  {% set bar = 15 %}
+  {{ i }}.{{ foo }}
+{% endfor %}
+{{ foo }}
+"{{ bar }}"
+-----OUTPUT
+1.20
+20
+""
+
+
+
+-----FILE
+{% set foo = 10 %}
+{% with { bar: 20 } %}
+  {{ foo }}.{{ bar }}
+{% endwith %}
+{{ foo }}.{{ bar }}
+-----OUTPUT
+10.20
+10.
+
+
+
+-----FILE
+{% set foo = 10 %}
+{% with { bar: 20 } only %}
+  {# XXX: uncomment this when it no longer errors out #}
+  {# foo #}.{{ bar }}
+{% endwith %}
+{{ foo }}.{{ bar }}
+-----OUTPUT
+.20
+10.
+
+
+
+-----FILE
+{% set foo = 'foo' %}
+{% set bar = 'bar' %}
+1.
+{% include 'test' %}
+2.
+{% include 'test' with { baz: 'baz' } %}
+3.
+{% include 'test' with { baz: 'baz' } only %}
+-----FILE: test
+foo={{ foo }}
+bar={{ bar }}
+baz={{ baz }}
+-----OUTPUT
+1.
+foo=foo
+bar=bar
+baz=
+2.
+foo=foo
+bar=bar
+baz=baz
+3.
+foo=
+bar=
+baz=baz

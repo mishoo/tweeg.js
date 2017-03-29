@@ -1,0 +1,20 @@
+-----FILE: index
+{% if foo is not defined %}
+  {% set foo = 10 %}
+{% endif %}
+foo={{ foo }}
+{% set foo = foo - 1 %}
+{% if foo > 0 %}
+  {% include 'index' %}
+{% endif %}
+-----OUTPUT
+foo=10
+foo=9
+foo=8
+foo=7
+foo=6
+foo=5
+foo=4
+foo=3
+foo=2
+foo=1

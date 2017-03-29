@@ -491,19 +491,6 @@ TWEEG = function(RUNTIME){
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
             }
-        },
-
-        "trans": {
-            parse: function(X) {
-                X.skip(NODE_STAT_END);
-                return {
-                    body: X.parse_until(X.end_body_predicate(/^endtrans$/, true))
-                };
-            },
-            compile: function(env, X, node) {
-                // XXX: implement me
-                return X.compile(env, node.body);
-            }
         }
     };
 

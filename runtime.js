@@ -95,7 +95,12 @@ TWEEG_RUNTIME = function(){
     }
 
     function length(thing) {
-        if (length == null) return 0;
+        if (thing == null)
+            return 0;
+        if (Array.isArray(thing))
+            return thing.length;
+        if (typeof thing == "object")
+            return Object.keys(thing).length;
         return String(thing).length;
     }
 

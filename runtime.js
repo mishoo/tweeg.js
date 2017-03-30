@@ -194,13 +194,34 @@ TWEEG_RUNTIME = function(){
         if (step == null) step = 1;
         else if (step < 0) step = -step;
         var i, a;
-        if (end >= beg) {
-            for (i = beg, a = []; i <= end; i += step) {
-                a.push(i);
+        if (typeof beg != "string" || typeof end != "string") {
+            beg = parseFloat(beg);
+            end = parseFloat(end);
+            if (isNaN(beg) || isNaN(end)) {
+                throw new Error("Invalid range arguments");
             }
+            if (end >= beg) {
+                for (i = beg, a = []; i <= end; i += step) {
+                    a.push(i);
+                }
+            } else {
+                for (i = beg, a = []; i >= end; i -= step) {
+                    a.push(i);
+                }
+            }
+        } else if (beg.length != 1 || end.length != 1) {
+            throw new Error("Invalid range arguments");
         } else {
-            for (i = beg, a = []; i >= end; i -= step) {
-                a.push(i);
+            beg = beg.charCodeAt(0);
+            end = end.charCodeAt(0);
+            if (end >= beg) {
+                for (i = beg, a = []; i <= end; i += step) {
+                    a.push(String.fromCharCode(i));
+                }
+            } else {
+                for (i = beg, a = []; i >= end; i -= step) {
+                    a.push(String.fromCharCode(i));
+                }
             }
         }
         return a;

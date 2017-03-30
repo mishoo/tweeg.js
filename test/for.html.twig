@@ -1,0 +1,64 @@
+-----FILE
+{% for letter in 'a'..'c' %}
+  * {{ letter }}
+{% endfor %}
+-----OUTPUT
+* a
+* b
+* c
+
+
+
+-----FILE
+{% for i in 'c'..'a' %}
+  * {{ i }} first:{{ loop.first }} last:{{ loop.last }}
+  index:{{ loop.index }} index0: {{ loop.index0 }}
+  revindex:{{ loop.revindex }} revindex0: {{ loop.revindex0 }}
+  length: {{ loop.length }}
+{% endfor %}
+-----OUTPUT
+* c first:1 last:
+index:1 index0: 0
+revindex:3 revindex0: 2
+length: 3
+* b first: last:
+index:2 index0: 1
+revindex:2 revindex0: 1
+length: 3
+* a first: last:1
+index:3 index0: 2
+revindex:1 revindex0: 0
+length: 3
+
+
+
+-----FILE
+{% for i in 1..10 if not i % 3 %}
+  {{ i }}
+{% endfor %}
+-----OUTPUT
+3
+6
+9
+
+
+
+-----FILE
+{% for i in 1..10 if not i % 12 %}
+  {{ i }}
+{% else %}
+  Nothing
+{% endfor %}
+-----OUTPUT
+Nothing
+
+
+
+-----FILE
+{% for i in [] %}
+  Something
+{% else %}
+  Nothing
+{% endfor %}
+-----OUTPUT
+Nothing

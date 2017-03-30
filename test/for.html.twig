@@ -62,3 +62,19 @@ Nothing
 {% endfor %}
 -----OUTPUT
 Nothing
+
+
+
+-----FILE
+{% for id, user in users if id is not "root" %}
+  <li>{{ id }}: {{ user.name }}</li>
+{% endfor %}
+-----INPUT
+{{ users: {
+    "root": { name: "BOFH" },
+    "foo": { name: "The Foo" },
+    "bar": { name: "The Bar" },
+} }}
+-----OUTPUT
+<li>foo: The Foo</li>
+<li>bar: The Bar</li>

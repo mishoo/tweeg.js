@@ -27,6 +27,8 @@ TWEEG = function(RUNTIME){
         [ "??" ]
     ]);
 
+    var PRECEDENCE_NOT = 105;   // XXX: ugly
+
     var RX_WHITESPACE = /^[ \u00a0\n\r\t\f\u000b\u200b\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\uFEFF]+/;
 
     var RX_TEST_OPS = /^(?:constant|defined|divisible|empty|even|iterable|null|odd|same)$/;
@@ -595,7 +597,7 @@ TWEEG = function(RUNTIME){
             var b = a[i];
             for (var j = 0; j < b.length; ++j) {
                 ALL_OPERATORS.push(b[j]);
-                precedence[b[j]] = i + 1;
+                precedence[b[j]] = 10 * (i + 1);
             }
         }
         return precedence;
@@ -675,8 +677,9 @@ TWEEG = function(RUNTIME){
             croak("Unexpected token");
         }
 
-        function parse_expression() {
-            return maybe_ternary(maybe_binary(parse_atom(), 0));
+        function parse_expression(prec) {
+            var exp = maybe_binary(parse_atom(), prec || 0);
+            return prec ? exp : maybe_ternary(exp);
         }
 
         function parse_atom() {
@@ -705,7 +708,7 @@ TWEEG = function(RUNTIME){
                 atom = {
                     type: NODE_UNARY,
                     operator: next().value,
-                    expr: parse_atom()
+                    expr: tok.value == "not" ? parse_expression(PRECEDENCE_NOT) : parse_atom()
                 };
             }
             else {

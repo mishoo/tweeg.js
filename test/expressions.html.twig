@@ -1,9 +1,15 @@
 -----FILE
+{{ not 1 and not 2 ? 'true' : 'false' }}
+-----OUTPUT
+false
+
+
+
+-----FILE
 {{ 2 + 4 }}
 {{ 2 + 4 * 4 }}
 {{ 2 ** 8}}
 {{ a b-and b }}
-
 -----INPUT
 { a: 255,
   b: 128 }
@@ -12,7 +18,6 @@
 18
 256
 128
-
 -----INPUT
 { a: 13,
   b: 8 }

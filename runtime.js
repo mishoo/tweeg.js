@@ -198,11 +198,12 @@ TWEEG_RUNTIME = function(){
     function range(beg, end, step) {
         if (step == null) step = 1;
         else if (step < 0) step = -step;
+        else step = parseFloat(step);
         var i, a;
         if (typeof beg != "string" || typeof end != "string") {
             beg = parseFloat(beg);
             end = parseFloat(end);
-            if (isNaN(beg) || isNaN(end)) {
+            if (isNaN(beg) || isNaN(end) || isNaN(step)) {
                 throw new Error("Invalid range arguments");
             }
             if (end >= beg) {

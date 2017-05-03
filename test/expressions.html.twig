@@ -11,18 +11,51 @@ false
 {{ 2 ** 8}}
 {{ a b-and b }}
 -----INPUT
-{ a: 255,
-  b: 128 }
+{ a: 255, b: 128 }
 -----OUTPUT
 6
 18
 256
 128
 -----INPUT
-{ a: 13,
-  b: 8 }
+{ a: 13, b: 8 }
 -----OUTPUT
 6
 18
 256
 8
+
+
+
+-----FILE
+{{ x is not null ? "not null" : "null" }}
+
+-----INPUT
+{ x: null }
+-----OUTPUT
+null
+
+-----INPUT
+{ x: false }
+-----OUTPUT
+not null
+
+-----INPUT
+{ x: 0 }
+-----OUTPUT
+not null
+
+-----INPUT
+{ x: [] }
+-----OUTPUT
+not null
+
+-----INPUT
+{ x: undefined }
+-----OUTPUT
+null
+
+-----INPUT
+{ x: [ 0 ] }
+-----OUTPUT
+not null

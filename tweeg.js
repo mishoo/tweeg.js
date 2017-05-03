@@ -1405,7 +1405,7 @@ TWEEG = function(RUNTIME){
                   case "iterable":
                     return "$ITERABLE(" + left + ")";
                   case "null":
-                    return parens(left, "==null");
+                    return parens(left + "==null");
                   case "same":
                     return parens(left + "===" + compile(env, node.right.expr));
                 }

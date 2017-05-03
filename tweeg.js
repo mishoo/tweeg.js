@@ -332,9 +332,7 @@ TWEEG = function(RUNTIME){
                 }
                 code += "return(";
                 if (node.only) {
-                    code += X.outside_main(function(){
-                        return X.compile(X.root_env.extend(), node.body);
-                    });
+                    code += X.compile(X.root_env.extend(), node.body);
                 } else {
                     code += X.compile(env.extend(), node.body);
                 }
@@ -372,9 +370,7 @@ TWEEG = function(RUNTIME){
                     + "(" + args.map(X.output_name).join(",") + "){";
                 env = X.root_env.extend.apply(X.root_env, args);
                 env = env.extend();
-                var body = X.outside_main(function(){
-                    return X.compile(env, node.body);
-                });
+                var body = X.compile(env, node.body);
                 code += X.output_vars(env.own());
                 code += "return " + body + "}";
                 X.add_export(node.name.value, code);
@@ -493,6 +489,49 @@ TWEEG = function(RUNTIME){
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
             }
+        },
+
+        "block": {
+            parse: function(X) {
+                var node = {
+                    name: X.skip(NODE_SYMBOL)
+                };
+                if (X.looking_at(NODE_STAT_END)) {
+                    X.skip(NODE_STAT_END);
+                    node.body = X.parse_until(X.end_body_predicate(/^endblock$/));
+                    X.skip(NODE_SYMBOL);
+                    if (X.looking_at(NODE_SYMBOL)) {
+                        if (X.next().value != node.name.value) {
+                            X.croak("Wrong name in endblock");
+                        }
+                    }
+                    X.skip(NODE_STAT_END);
+                } else {
+                    node.body = X.parse_expression();
+                    X.skip(NODE_STAT_END);
+                }
+                return node;
+            },
+            compile: function(env, X, node) {
+                var code = X.compile_func(node.body);
+                var name = node.name.value;
+                X.add_export(name, code);
+                return "_self[" + JSON.stringify(name) + "](" + (X.make_context(env)||"{}") + ")";
+            }
+        },
+
+        "extends": {
+            parse: function(X) {
+                var node = {
+                    base: X.parse_expression()
+                };
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                X.add_dependency(node.base);
+                X.set_parent(X.compile(env, node.base));
+            }
         }
     };
 
@@ -500,9 +539,14 @@ TWEEG = function(RUNTIME){
 
     /* -----[ Das Environment ]----- */
 
+    function gensym() {
+        return "$SYM" + (++GENSYM);
+    }
+
     function Environment(parent) {
         this.vars = Object.create(parent ? parent.vars : null);
         this.parent = parent;
+        this.name = gensym();
     }
     Environment.prototype = {
         extend: function() {
@@ -1016,7 +1060,7 @@ TWEEG = function(RUNTIME){
 
     /* -----[ Das Compiler ]----- */
 
-    function compile(node, options, env) {
+    function compile(root, options, env) {
         if (!env) env = new Environment();
         var context = RUNTIME.merge(Object.create(NODES), {
             root_env         : env,
@@ -1024,25 +1068,27 @@ TWEEG = function(RUNTIME){
             compile_bool     : compile_bool,
             compile_num      : compile_num,
             compile_cond     : compile_cond,
+            compile_func     : compile_func,
             output_vars      : output_vars,
             output_name      : output_name,
             add_function     : add_function,
             add_export       : add_export,
-            outside_main     : outside_main,
             with_escaping    : with_escaping,
             make_context     : make_context,
             add_dependency   : add_dependency,
+            set_parent       : set_parent,
             is_constant      : is_constant,
             gensym           : gensym,
             with_tags        : with_tags
         });
         var autoescape = option("autoescape", "html");
         var dependencies = [];
-        var globals = [];
+        var globals;
         var functions = [];
-        var inside_main = true;
         var exports = "";
-        var output_code = "var _self = $TR.t({ $main: " + compile_main() + "});";
+        var parent = null;
+        var main = compile_func(root, true);
+        var output_code = "var _self = $TR.t({ $main: " + main + " });";
         functions.forEach(function(f){
             output_code += f.code + ";";
         });
@@ -1051,6 +1097,10 @@ TWEEG = function(RUNTIME){
             code: "function(){" + output_code + "}",
             dependencies: dependencies
         };
+
+        function set_parent(p) {
+            parent = p;
+        }
 
         function option(name, def, val) {
             if (!options) return def;
@@ -1064,41 +1114,47 @@ TWEEG = function(RUNTIME){
 
         function add_dependency(node) {
             if (node.type == NODE_STR) {
-                dependencies.push(node.value);
+                if (node.value) {
+                    dependencies.push(node.value);
+                }
             } else if (node.type == NODE_ARRAY) {
                 node.body.forEach(add_dependency);
+            } else if (node.type == NODE_COND) {
+                add_dependency(node.then);
+                add_dependency(node.else);
             } else {
                 // let's mark complex deps by just adding the AST node
                 dependencies.push(node);
             }
         }
 
-        function outside_main(f) {
-            var save = inside_main;
-            inside_main = false;
+        function compile_func(node, is_main) {
+            var save_globals = globals;
+            globals = [];
             try {
-                return f();
-            } finally {
-                inside_main = save;
-            }
-        }
-
-        function compile_main() {
-            env = env.extend();
-            var body = compile(env, node);
-            var main = "function($DATA){";
-            main += output_vars(env.own());
-            var args = globals.reduce(function(a, name){
-                if (!/^(?:_self|_context)$/.test(name)) {
-                    a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
+                env = env.extend();
+                var body = compile(env, node);
+                var code = "function($DATA){";
+                code += output_vars(env.own());
+                var args = globals.reduce(function(a, name){
+                    if (!/^(?:_self|_context)$/.test(name)) {
+                        a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
+                    }
+                    return a;
+                }, []);
+                if (args.length) {
+                    code += "var " + args.join(",") + ";";
                 }
-                return a;
-            }, []);
-            if (args.length) {
-                main += "var " + args.join(",") + ";";
+                if (is_main && parent) {
+                    code += "return $TR.exec2(_self, " + parent + ", " + (make_context(env)||"{}") + ")";
+                } else {
+                    code += "return " + body;
+                }
+                code += "}";
+                return code;
+            } finally {
+                globals = save_globals;
             }
-            main += "return " + body + "}";
-            return main;
         }
 
         function make_context(env) {
@@ -1113,10 +1169,6 @@ TWEEG = function(RUNTIME){
                 }
             }
             return has ? "{" + ctx.join(",") + "}" : null;
-        }
-
-        function gensym() {
-            return "$SYM" + (++GENSYM);
         }
 
         function add_function(name, code) {
@@ -1321,7 +1373,7 @@ TWEEG = function(RUNTIME){
 
         function compile_sym(env, node) {
             var name = node.value;
-            if (inside_main && !env.lookup(name) && globals.indexOf(name) < 0) {
+            if (!env.lookup(name) && globals.indexOf(name) < 0) {
                 globals.push(name);
             }
             return output_name(name);

@@ -59,10 +59,16 @@ function compile(files, options) {
         var template_name = base ? path.relative(base, fullname) : filename;
         template_name = template_name.replace(/\\/g, "/");
         var tmpl = fs.readFileSync(fullname, "utf8");
-        var ast = tweeg.parse(tmpl);
-        var result = tweeg.compile(ast, {
-            autoescape: option("escape", "html")
-        });
+        var ast, result;
+
+        try {
+            ast = tweeg.parse(tmpl);
+            result = tweeg.compile(ast, {
+                autoescape: option("escape", "html")
+            });
+        } catch(ex) {
+            throw new Error(`Template: ${template_name}\n${ex}`);
+        }
 
         result.dependencies.forEach(function(file){
             if (typeof file == "string") {

@@ -105,7 +105,7 @@ TWEEG_RUNTIME = function(){
     }
 
     function empty(val) {
-        if (val == "" || val == null || val === false) {
+        if (val === "" || val == null || val === false) {
             return true;
         }
         if (Array.isArray(val)) {

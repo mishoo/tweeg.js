@@ -1,0 +1,6 @@
+-----FILE
+{{ "I like %this% and %that%."|replace({'%this%': 'foo', '%that%': "bar"}) }}
+{{ "I like %this% %x% %this% and %x% %this% %x%."|replace({'%this%': 'foofoo', '%x%': "bar"}) }}
+-----OUTPUT
+I like foo and bar.
+I like foofoo bar foofoo and bar foofoo bar.

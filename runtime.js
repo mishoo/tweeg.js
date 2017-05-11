@@ -281,6 +281,20 @@ TWEEG_RUNTIME = function(){
                     return a.concat(b);
                 return merge(a, b);
             },
+            replace: function(str, parts) {
+                Object.keys(parts).forEach(function(substr){
+                    var replacement = parts[substr], pos = str.length;
+                    while (replacement && str) {
+                        pos = str.lastIndexOf(substr, pos);
+                        if (pos < 0) {
+                            break;
+                        } else {
+                            str = str.substr(0, pos) + replacement + str.substr(pos + substr.length);
+                        }
+                    }
+                });
+                return str;
+            },
             keys: keys,
             batch: batch,
             first: first,

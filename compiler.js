@@ -17,6 +17,7 @@ function compile(files, options) {
     var extend = option("extend", null);
     var runtime = option("runtime", TWEEG_RUNTIME());
     var tweeg = option("tweeg", TWEEG(runtime).init());
+    var wrap_template = option("wrap_template", tmpl => tmpl);
 
     var code = "";
 
@@ -78,7 +79,7 @@ function compile(files, options) {
             }
         });
 
-        code += `$REGISTER(${JSON.stringify(template_name)}, ${result.code});`;
+        code += wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name, filename);
     }
 
     function replacePaths(filename) {

@@ -379,6 +379,7 @@ TWEEG_RUNTIME = function(){
             };
             var result = [];
             function add(el, i) {
+                loop.last = !loop.revindex0;
                 var val = f(loop, el, i);
                 if (val !== TR) {
                     // for `for`-s that define a condition, the
@@ -389,7 +390,7 @@ TWEEG_RUNTIME = function(){
                     ++loop.index;
                     ++loop.index0;
                     --loop.revindex;
-                    loop.last = !(--loop.revindex0);
+                    --loop.revindex0;
                 }
             }
             if (is_array) {

@@ -78,3 +78,12 @@ Nothing
 -----OUTPUT
 <li>foo: The Foo</li>
 <li>bar: The Bar</li>
+
+
+
+-----FILE
+{% for i in [1] %}
+    {{ loop.last ? "okay" : "broken" }}
+{% endfor %}
+-----OUTPUT
+okay

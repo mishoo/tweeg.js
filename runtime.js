@@ -374,8 +374,7 @@ TWEEG_RUNTIME = function(){
                 revindex  : n,
                 revindex0 : n - 1,
                 length    : n,
-                first     : true,
-                last      : !n
+                first     : true
             };
             var result = [];
             function add(el, i) {

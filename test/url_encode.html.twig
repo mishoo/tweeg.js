@@ -1,0 +1,9 @@
+-----FILE
+{{ "string with spaces"|url_encode }}
+-----OUTPUT
+string%20with%20spaces
+
+-----FILE
+{{ {'param': 'value', 'foo': 'bar'}|url_encode }}
+-----OUTPUT
+param=value&foo=bar

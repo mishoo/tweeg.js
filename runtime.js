@@ -233,6 +233,18 @@ TWEEG_RUNTIME = function(){
         return a;
     }
 
+    function url_encode(arg) {
+        var ret;
+        if (typeof arg == "string") {
+            ret = encodeURIComponent(arg);
+        } else {
+            ret = Object.keys(arg).map(function(key){
+                return encodeURIComponent(key) + "=" + encodeURIComponent(arg[key]);
+            }).join("&");
+        }
+        return new RawString(ret);
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -304,7 +316,8 @@ TWEEG_RUNTIME = function(){
             round: Math.round,
             slice: slice,
             sort: sort,
-            length: length
+            length: length,
+            url_encode: url_encode
         },
 
         operator: {

@@ -245,6 +245,22 @@ TWEEG_RUNTIME = function(){
         return new RawString(ret);
     }
 
+    function striptags(str, exceptions) {
+        if (exceptions) {
+            exceptions = exceptions.split(/[<>]+/).filter(function(tag){
+                return tag.length > 0;
+            }).map(function(tag){
+                return "/?" + tag;
+            }).join("|");
+        }
+        if (exceptions) {
+            var rx = new RegExp("<(?!(?:" + exceptions + ")).*?>", "ig");
+            return str.replace(rx, "");
+        } else {
+            return str.replace(/<.*?>/g, "");
+        }
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -317,7 +333,8 @@ TWEEG_RUNTIME = function(){
             slice: slice,
             sort: sort,
             length: length,
-            url_encode: url_encode
+            url_encode: url_encode,
+            striptags: striptags
         },
 
         operator: {

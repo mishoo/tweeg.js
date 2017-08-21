@@ -1,0 +1,9 @@
+-----FILE
+{{ "<p>This is <a href='blah'>some html</a>.  <br/>Test.</p>" | striptags | raw }}
+-----OUTPUT
+This is some html.  Test.
+
+-----FILE
+{{ "<p>This is <a href='blah'>some html</a>.  <br/>Test.</p>" | striptags("<p><br>") | raw }}
+-----OUTPUT
+<p>This is some html.  <br/>Test.</p>

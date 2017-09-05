@@ -261,6 +261,35 @@ TWEEG_RUNTIME = function(){
         }
     }
 
+    function collectArgs(args) {
+        var res = [];
+        (function loop(a){
+            for (var i = a.length; --i >= 0;) {
+                var el = a[i];
+                if (el != null) {
+                    if (Array.isArray(el)) {
+                        loop(el);
+                    } else if (typeof el == "object") {
+                        loop(Object.keys(el).map(function(key){
+                            return el[key];
+                        }));
+                    } else {
+                        res.push(el);
+                    }
+                }
+            }
+        })(args);
+        return res;
+    }
+
+    function max() {
+        return Math.max.apply(Math, collectArgs(arguments));
+    }
+
+    function min() {
+        return Math.min.apply(Math, collectArgs(arguments));
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -273,7 +302,9 @@ TWEEG_RUNTIME = function(){
                 return array[index % array.length];
             },
             range: range,
-            slice: slice
+            slice: slice,
+            max: max,
+            min: min
         },
 
         filter: {

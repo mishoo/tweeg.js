@@ -261,6 +261,14 @@ TWEEG_RUNTIME = function(){
         }
     }
 
+    function attribute(obj, item, args) {
+        var val = obj[item];
+        if (args != null) {
+            val = val.apply(obj, args);
+        }
+        return val;
+    }
+
     function collectArgs(args) {
         var res = [];
         (function loop(a){
@@ -304,7 +312,8 @@ TWEEG_RUNTIME = function(){
             range: range,
             slice: slice,
             max: max,
-            min: min
+            min: min,
+            attribute: attribute
         },
 
         filter: {

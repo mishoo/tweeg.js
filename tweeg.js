@@ -857,31 +857,29 @@ TWEEG = function(RUNTIME){
 
         function maybe_binary(left, my_prec) {
             var tok = looking_at(NODE_OPERATOR);
-            if (tok && BINARY_OPERATORS[tok.value]) {
-                var his_prec = BINARY_OPERATORS[tok.value];
-                if (his_prec > my_prec) {
-                    next();
-                    if (tok.value == "is" || tok.value == "is not") {
-                        // XXX: handle Twig tests: constant, defined,
-                        // divisible by(..), empty, even, iterable,
-                        // null, odd, same as(..)
-                        var right = peek();
-                        if (right.type == NODE_SYMBOL && RX_TEST_OPS.test(right.value)) {
-                            return maybe_binary({
-                                type     : NODE_BINARY,
-                                operator : tok.value,
-                                left     : left,
-                                right    : parse_test_op()
-                            }, my_prec);
-                        }
+            var his_prec = tok && BINARY_OPERATORS[tok.value];
+            if (his_prec > my_prec) {
+                next();
+                if (tok.value == "is" || tok.value == "is not") {
+                    // XXX: handle Twig tests: constant, defined,
+                    // divisible by(..), empty, even, iterable,
+                    // null, odd, same as(..)
+                    var right = peek();
+                    if (right.type == NODE_SYMBOL && RX_TEST_OPS.test(right.value)) {
+                        return maybe_binary({
+                            type     : NODE_BINARY,
+                            operator : tok.value,
+                            left     : left,
+                            right    : parse_test_op()
+                        }, my_prec);
                     }
-                    return maybe_binary({
-                        type     : NODE_BINARY,
-                        operator : tok.value,
-                        left     : left,
-                        right    : maybe_binary(parse_atom(), his_prec)
-                    }, my_prec);
                 }
+                return maybe_binary({
+                    type     : NODE_BINARY,
+                    operator : tok.value,
+                    left     : left,
+                    right    : maybe_binary(parse_atom(), his_prec)
+                }, my_prec);
             }
             return left;
         }
@@ -1168,7 +1166,7 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_prog(env, node) {
-            var str = "", a_body = [];
+            var a_body = [];
             function add(item) {
                 if (is_constant(item) || item.type == NODE_STAT) {
                     a_body.push(item);

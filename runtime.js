@@ -523,7 +523,7 @@ TWEEG_RUNTIME = function(){
         },
 
         register: function(name, template) {
-            name = name.replace(/^\/?/, "/");
+            name = name.replace(/^\/*/, "");
             template = REGISTRY[name] = template();
             template.$name = name;
         },
@@ -535,7 +535,7 @@ TWEEG_RUNTIME = function(){
             if (CURRENT) {
                 tmpl = TR.resolve(CURRENT.$name, tmpl);
             }
-            tmpl = tmpl.replace(/^\/?/, "/");
+            tmpl = tmpl.replace(/^\/*/, "");
             return REGISTRY[tmpl];
         },
 
@@ -568,6 +568,10 @@ TWEEG_RUNTIME = function(){
             if (/^\//.test(dest)) {
                 // absolute path — src doesn't matter
                 return dest.substr(1);
+            }
+            if (/^@/.test(dest)) {
+                // absolute path — src doesn't matter
+                return dest;
             }
             // normalize relative path
             src = src.split(/\/+/);

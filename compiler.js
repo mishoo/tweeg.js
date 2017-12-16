@@ -45,8 +45,9 @@ function compile(files, options) {
         return ugly.code;
     }
 
-    function compileFile(filename, source) {
-        var fullname = replacePaths(filename);
+    function compileFile(template_name, source) {
+        template_name = template_name.replace(/\\/g, "/").replace(/\/\/+/g, "/");
+        var fullname = replacePaths(template_name);
         if (source) {
             fullname = path.resolve(path.dirname(source), fullname);
         } else {
@@ -57,8 +58,6 @@ function compile(files, options) {
         }
         compiled[fullname] = true;
 
-        var template_name = base ? path.relative(base, fullname) : filename;
-        template_name = template_name.replace(/\\/g, "/");
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast, result;
 
@@ -79,7 +78,7 @@ function compile(files, options) {
             }
         });
 
-        code += wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name, filename);
+        code += wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name);
     }
 
     function replacePaths(filename) {

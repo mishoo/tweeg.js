@@ -16,5 +16,10 @@
         "minimist": "1.2.0",
         "uglify-js": "2.7.5"
     },
-    "keywords": [ "PHP", "Twig", "JavaScript", "compiler" ]
+    "keywords": [
+        "PHP",
+        "Twig",
+        "JavaScript",
+        "compiler"
+    ]
 }

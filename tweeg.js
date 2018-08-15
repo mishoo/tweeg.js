@@ -891,7 +891,7 @@ TWEEG = function(RUNTIME){
                     type: NODE_COND,
                     cond: expr,
                     then: parse_expression(),
-                    else: (skip(NODE_PUNC, ":"), parse_expression())
+                    else: looking_at(NODE_PUNC, ":") ? (next(), parse_expression()) : EMPTY_STRING
                 };
             }
             return expr;

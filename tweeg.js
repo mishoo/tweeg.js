@@ -974,13 +974,21 @@ TWEEG = function(RUNTIME){
             var a = [], first = true;
             skip(NODE_PUNC, start);
             while (!input.eof()) {
-                if (looking_at(NODE_PUNC, stop)) break;
+                if (finished()) break;
                 if (first) first = false; else skip(NODE_PUNC, separator);
-                if (looking_at(NODE_PUNC, stop)) break;
+                if (finished()) break;
                 a.push(parser());
             }
             skip(NODE_PUNC, stop);
             return a;
+
+            function finished() {
+                if (stop == "}" && looking_at(NODE_EXPR_END)) {
+                    input.fixex(); // handle "}}" in minified JSON
+                    return true;
+                }
+                return looking_at(NODE_PUNC, stop);
+            }
         }
 
         function croak(msg) {
@@ -1458,11 +1466,57 @@ TWEEG = function(RUNTIME){
             next  : next,
             peek  : peek,
             ahead : ahead,
+            fixex : fixex,
             skip  : input.skip,
             eof   : eof,
             croak : croak
         };
 
+        function next() {
+            return peeked.length ? peeked.shift() : read_token();
+        }
+
+        function peek() {
+            if (!peeked.length) {
+                peeked.push(read_token());
+            }
+            return peeked[0];
+        }
+
+        function fixex() {
+            // the lexer has seen "}}" and returned NODE_EXPR_END, but
+            // the parser figured out we're actually closing two
+            // brackets in some JSON-like object, and calls this
+            // function for the lexer has to fix the mess.
+
+            // since it's called after peeking, the NODE_EXPR_END
+            // token is in `peeked`.  Ugly hacks but I have no better
+            // ideas.
+            let tok = peeked.shift();
+            tok = { loc: tok.loc, type: NODE_PUNC, value: "}" };
+
+            // two of these are needed.  `loc` will be slightly wrong,
+            // but good enough.
+            peeked.unshift(tok);
+            peeked.unshift(tok);
+
+            // back into expression mode.
+            push_state(LEX_EXPRESSION);
+        }
+
+        function ahead(count, func) {
+            var n = count - peeked.length;
+            while (!input.eof() && n-- > 0) {
+                peeked.push(read_token());
+            }
+            return func.call(null, peeked, function(n){
+                peeked.splice(0, n == null ? count : n);
+            });
+        }
+
+        function eof() {
+            return peek() == null;
+        }
         function push_state(s) {
             state.push(s);
         }
@@ -1652,31 +1706,6 @@ TWEEG = function(RUNTIME){
 
         function croak(msg) {
             input.croak(msg);
-        }
-
-        function next() {
-            return peeked.length ? peeked.shift() : read_token();
-        }
-
-        function peek() {
-            if (!peeked.length) {
-                peeked.push(read_token());
-            }
-            return peeked[0];
-        }
-
-        function ahead(count, func) {
-            var n = count - peeked.length;
-            while (!input.eof() && n-- > 0) {
-                peeked.push(read_token());
-            }
-            return func.call(null, peeked, function(n){
-                peeked.splice(0, n == null ? count : n);
-            });
-        }
-
-        function eof() {
-            return peek() == null;
         }
     }
 

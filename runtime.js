@@ -101,7 +101,7 @@ TWEEG_RUNTIME = function(){
             return thing.length;
         if (typeof thing == "object")
             return Object.keys(thing).length;
-        return String(thing).length;
+        return string(thing).length;
     }
 
     function empty(val) {
@@ -246,7 +246,7 @@ TWEEG_RUNTIME = function(){
     }
 
     function striptags(str, exceptions) {
-        str = str + "";
+        str = string(str);
         if (exceptions) {
             exceptions = exceptions.split(/[<>]+/).filter(function(tag){
                 return tag.length > 0;
@@ -351,6 +351,7 @@ TWEEG_RUNTIME = function(){
                 return merge(a, b);
             },
             replace: function(str, parts) {
+                str = string(str);
                 Object.keys(parts).forEach(function(substr){
                     var replacement = parts[substr], pos = str.length;
                     while (replacement && str) {

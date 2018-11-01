@@ -246,6 +246,7 @@ TWEEG_RUNTIME = function(){
     }
 
     function striptags(str, exceptions) {
+        str = str + "";
         if (exceptions) {
             exceptions = exceptions.split(/[<>]+/).filter(function(tag){
                 return tag.length > 0;
@@ -255,9 +256,9 @@ TWEEG_RUNTIME = function(){
         }
         if (exceptions) {
             var rx = new RegExp("<(?!(?:" + exceptions + ")).*?>", "ig");
-            return str.replace(rx, "");
+            return safeString(str.replace(rx, ""));
         } else {
-            return str.replace(/<.*?>/g, "");
+            return safeString(str.replace(/<.*?>/g, ""));
         }
     }
 

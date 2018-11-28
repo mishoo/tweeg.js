@@ -365,6 +365,9 @@ TWEEG_RUNTIME = function(){
                 });
                 return str;
             },
+            capitalize: function(str) {
+                return (str = string(str)).charAt(0).toUpperCase() + str.substr(1);
+            },
             keys: keys,
             batch: batch,
             first: first,

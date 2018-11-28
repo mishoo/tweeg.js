@@ -1,0 +1,14 @@
+-----FILE
+{% set num = random() %}
+1. {{ num >= 0 and num <= 2147483647 ? "ok" : "nope" }}
+{% set num = random(10) %}
+2. {{ num >= 0 and num <= 10 ? "ok" : "nope" }}
+3. {{ random("abcdef") in "abcdef" ? "ok" : "nope" }}
+4. {{ random([ "foo", "bar", "baz" ]) in [ "foo", "bar", "baz" ] ? "ok" : "nope" }}
+5. {{ random(0) == 0 ? "ok" : "nope" }}
+-----OUTPUT
+1. ok
+2. ok
+3. ok
+4. ok
+5. ok

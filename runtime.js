@@ -299,6 +299,16 @@ TWEEG_RUNTIME = function(){
         return Math.min.apply(Math, collectArgs(arguments));
     }
 
+    function random(val) {
+        if (typeof val == 'number') {
+            return Math.floor(Math.random() * (val + 1));
+        }
+        if (typeof val == 'string' || Array.isArray(val)) {
+            return val[Math.floor(Math.random() * val.length)];
+        }
+        return Math.floor(Math.random() * (2147483647 + 1));
+    }
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -314,7 +324,8 @@ TWEEG_RUNTIME = function(){
             slice: slice,
             max: max,
             min: min,
-            attribute: attribute
+            attribute: attribute,
+            random: random
         },
 
         filter: {

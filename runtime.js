@@ -9,7 +9,7 @@ TWEEG_RUNTIME = function(){
 
     function Template() {}
 
-    function replacePaths(filename) {
+    function replace_paths(filename) {
         return filename.replace(/@[a-z0-9_]+/ig, function(name){
             return PATHS[name.substr(1)];
         });
@@ -30,7 +30,7 @@ TWEEG_RUNTIME = function(){
         return new RawString(str);
     }
 
-    function htmlEscape(str) {
+    function html_escape(str) {
         return safeString(str.replace(/&/g, "&amp;")
                           .replace(/\x22/g, "&quot;")
                           .replace(/\x27/g, "&#x27;")
@@ -39,7 +39,7 @@ TWEEG_RUNTIME = function(){
                           .replace(/\u00A0/g, "&#xa0;"));
     }
 
-    function jsEscape(str) {
+    function js_escape(str) {
         return safeString(str.replace(/[^a-zA-Z0-9,._]/g, function(ch){
             var code = ch.charCodeAt(0);
             if (code <= 255) {
@@ -55,9 +55,9 @@ TWEEG_RUNTIME = function(){
               case "html":
               case undefined:
               case null:
-                return htmlEscape(str);
+                return html_escape(str);
               case "js":
-                return jsEscape(str);
+                return js_escape(str);
               case false:
                 return str;
             }
@@ -333,7 +333,7 @@ TWEEG_RUNTIME = function(){
                 return JSON.stringify(val, null, indent);
             },
             e: function(val) {
-                return htmlEscape(string(val));
+                return html_escape(string(val));
             },
             escape: function(val, strategy) {
                 return escape(string(val), strategy);
@@ -580,7 +580,7 @@ TWEEG_RUNTIME = function(){
         },
 
         resolve: function(src, dest) {
-            dest = replacePaths(dest);
+            dest = replace_paths(dest);
             if (/^\//.test(dest)) {
                 // absolute path — src doesn't matter
                 return dest.substr(1);

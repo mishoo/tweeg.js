@@ -1044,7 +1044,7 @@ TWEEG = function(RUNTIME){
         });
         var autoescape = option("autoescape", "html");
         var dependencies = [];
-        var globals = [];
+        var parameters = [];
         var functions = [];
         var inside_main = true;
         var exports = "";
@@ -1094,7 +1094,7 @@ TWEEG = function(RUNTIME){
             var body = compile(env, node);
             var main = "function($DATA){";
             main += output_vars(env.own());
-            var args = globals.reduce(function(a, name){
+            var args = parameters.reduce(function(a, name){
                 if (!/^(?:_self|_context)$/.test(name)) {
                     a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
                 }
@@ -1327,8 +1327,12 @@ TWEEG = function(RUNTIME){
 
         function compile_sym(env, node) {
             var name = node.value;
-            if (inside_main && !env.lookup(name) && globals.indexOf(name) < 0) {
-                globals.push(name);
+            var not_defined = !env.lookup(name);
+            if (inside_main && not_defined && parameters.indexOf(name) < 0) {
+                parameters.push(name);
+            }
+            if (not_defined && RUNTIME.is_global(name)) {
+                return "$GLOBAL(" + JSON.stringify(name) + ")";
             }
             return output_name(name);
         }
@@ -1776,5 +1780,6 @@ var $BOOL = $TR.bool\
 ,$SPACELESS = $TR.spaceless\
 ,$STR = $TR.string\
 ,$INDEX = $TR.index\
+,$GLOBAL = $TR.global\
 ;" + code + "}";
 };

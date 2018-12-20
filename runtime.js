@@ -309,6 +309,8 @@ TWEEG_RUNTIME = function(){
         return Math.floor(Math.random() * (2147483647 + 1));
     }
 
+    var globals = {};
+
     var TR = {
         t: function(data) {
             // make a Template instance
@@ -603,6 +605,18 @@ TWEEG_RUNTIME = function(){
 
         index: function(obj, prop) {
             return obj == null ? null : obj[prop];
+        },
+
+        add_global: function(name, value) {
+            globals[name] = value;
+        },
+
+        is_global: function(name) {
+            return HOP.call(globals, name);
+        },
+
+        global: function(name) {
+            return globals[name];
         }
     };
 

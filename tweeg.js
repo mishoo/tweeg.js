@@ -16,7 +16,7 @@ TWEEG = function(RUNTIME){
         [ "b-or" ],
         [ "b-xor" ],
         [ "b-and" ],
-        [ "==", "!=", "<", ">", ">=", "<=",
+        [ "==", "!=", "<", ">", ">=", "<=", "<=>",
           "not in", "in", "matches", "starts with", "ends with" ],
         [ ".." ],
         [ "+", "-" ],
@@ -1342,7 +1342,7 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_binary(env, node) {
-            var sym, op = node.operator;
+            var sym, op = node.operator, left, right;
             switch (op) {
               case "??":
                 env.def(sym = gensym());
@@ -1369,6 +1369,13 @@ TWEEG = function(RUNTIME){
 
               case "==": case "!=": case "<": case ">": case ">=": case "<=":
                 return compile(env, node.left) + op + compile(env, node.right);
+
+              case "<=>":
+                env.def(left = gensym());
+                env.def(right = gensym());
+                return "((" + left + "=" + compile(env, node.left) + "),"
+                    +  "(" + right + "=" + compile(env, node.right) + "),"
+                    +  left + "<" + right + "? -1 :" + left + ">" + right + "? 1 : 0)";
 
               case "+": case "-": case "*": case "/": case "%":
                 return compile_num(env, node.left) + op + compile_num(env, node.right);

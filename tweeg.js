@@ -1374,7 +1374,7 @@ TWEEG = function(RUNTIME){
                 return compile_num(env, node.left) + op + compile_num(env, node.right);
 
               case "//":
-                return "Math.round(" + compile_num(env, node.left) + "/" + compile_num(env, node.right) + ")";
+                return "Math.floor(" + compile_num(env, node.left) + "/" + compile_num(env, node.right) + ")";
 
               case "**":
                 return "Math.pow(" + compile_num(env, node.left) + "," + compile_num(env, node.right) + ")";

@@ -1,4 +1,4 @@
------FILE: capitalize
+-----FILE
 1. {{ "blah" | capitalize }}
 2. {{ "blah blah" | capitalize }}
 3. {{ 123 | capitalize }}
@@ -10,3 +10,15 @@
 3. 123
 4.
 5. 1
+
+
+
+-----FILE
+{%- set data = [
+  { title: "foo" },
+  { title: "bar" },
+  { title: "baz" }
+] -%}
+{{ data | column("title") | join(", ") }}
+-----OUTPUT
+foo, bar, baz

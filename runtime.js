@@ -309,6 +309,18 @@ TWEEG_RUNTIME = function(){
         return Math.floor(Math.random() * (2147483647 + 1));
     }
 
+    function round(val, precision, type) {
+        if (precision == null) precision = 0;
+        if (type == null) type = "common";
+        var f = Math.pow(10, precision);
+        val *= f;
+        val = type == "common" ? Math.round(val)
+            : type == "ceil" ? Math.ceil(val)
+            : Math.floor(val);
+        val /= f;
+        return val;
+    }
+
     var globals = {};
 
     var TR = {
@@ -392,7 +404,7 @@ TWEEG_RUNTIME = function(){
             last: last,
             trim: trim,
             abs: Math.abs,
-            round: Math.round,
+            round: round,
             slice: slice,
             sort: sort,
             length: length,

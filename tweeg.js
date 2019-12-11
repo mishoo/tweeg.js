@@ -2,7 +2,7 @@ TWEEG = function(RUNTIME){
 
     "use strict";
 
-    var ALL_OPERATORS = [ "?", "|", "=" ];
+    var ALL_OPERATORS = [ "?", "|", "=", "=>" ];
 
     var UNARY_OPERATORS = make_operators([
         [ "not" ],
@@ -72,6 +72,8 @@ TWEEG = function(RUNTIME){
     var NODE_ESCAPE       = "escape";
     var NODE_SLICE        = "slice";
     var NODE_VAR          = "var";
+    var NODE_SEQ          = "seq";
+    var NODE_LAMBDA       = "lambda";
 
     /* -----[ Lexer modes ]----- */
 
@@ -113,6 +115,8 @@ TWEEG = function(RUNTIME){
         NODE_ESCAPE      : NODE_ESCAPE,
         NODE_SLICE       : NODE_SLICE,
         NODE_VAR         : NODE_VAR,
+        NODE_SEQ         : NODE_SEQ,
+        NODE_LAMBDA      : NODE_LAMBDA,
 
         EMPTY_STRING     : EMPTY_STRING
     };
@@ -683,11 +687,17 @@ TWEEG = function(RUNTIME){
         }
 
         function parse_atom() {
-            var atom, tok;
+            var atom, tok, seq;
             if (looking_at(NODE_PUNC, "(")) {
                 next();
-                atom = parse_expression();
+                seq = [];
+                while (true) {
+                    seq.push(parse_expression());
+                    if (looking_at(NODE_PUNC, ",")) next();
+                    else break;
+                }
                 skip(NODE_PUNC, ")");
+                atom = maybe_lambda(seq.length > 1 ? { type: NODE_SEQ, body: seq } : seq[0]);
             }
             else if (looking_at(NODE_PUNC, "{")) {
                 atom = parse_hash();
@@ -696,7 +706,7 @@ TWEEG = function(RUNTIME){
                 atom = parse_array();
             }
             else if (looking_at(NODE_SYMBOL)) {
-                atom = parse_symbol();
+                atom = maybe_lambda(parse_symbol());
             }
             else if (looking_at(NODE_NUMBER) || looking_at(NODE_STR)) {
                 atom = next();
@@ -719,6 +729,32 @@ TWEEG = function(RUNTIME){
                 atom = maybe_filter(maybe_call(maybe_index(atom)));
                 if (atom == orig) return atom;
             }
+        }
+
+        function maybe_lambda(expr) {
+            if (!looking_at(NODE_OPERATOR, "=>")) return expr;
+            next();
+            // check validity, expr should be either a symbol or a
+            // list of symbols (argument names).  I'm not sure default
+            // values are supported?
+            var args;
+            if (expr.type == NODE_SEQ) {
+                expr.body.forEach(assert_symbol);
+                args = expr.body;
+            } else {
+                assert_symbol(expr);
+                args = [ expr ];
+            }
+            return {
+                type: NODE_LAMBDA,
+                args: args,
+                body: parse_expression()
+            };
+        }
+
+        function assert_symbol(node) {
+            if (node.type != NODE_SYMBOL)
+                croak("Expected argument name at " + dump(node));
         }
 
         function parse_call(func) {
@@ -1161,8 +1197,18 @@ TWEEG = function(RUNTIME){
               case NODE_ESCAPE      : return compile_escape(env, node);
               case NODE_SLICE       : return compile_slice(env, node);
               case NODE_VAR         : return compile_var(env, node);
+              case NODE_LAMBDA      : return compile_lambda(env, node);
             }
             throw new Error("Cannot compile node " + JSON.stringify(node));
+        }
+
+        function compile_lambda(env, node) {
+            var args = node.args.map(function(sym){ return sym.value });
+            var body = "function(" + args.map(output_name).join(",") + "){ return(";
+            env = env.extend.apply(env, args);
+            body += compile(env, node.body);
+            body += ");}";
+            return body;
         }
 
         function compile_var(env, node) {

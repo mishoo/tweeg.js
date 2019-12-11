@@ -6,6 +6,7 @@ require("../runtime");
 var glob = require("glob");
 var path = require("path");
 var fs = require("fs");
+var UglifyJS = require("uglify-js");
 
 var option_tests = process.argv[2];
 if (!option_tests) {
@@ -59,6 +60,10 @@ function runTest(filename) {
             let ast = tweeg.parse(data);
             let res = tweeg.compile(ast);
             code += `$REGISTER(${JSON.stringify(filename)}, ${res.code});`;
+
+            // let tmp = UglifyJS.parse(code);
+            // let beauty = tmp.print_to_string({ beautify: true });
+            // console.log(beauty);
         }
         else if (/^input/i.test(head[1])) {
             if (head[2]) {

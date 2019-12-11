@@ -22,3 +22,74 @@
 {{ data | column("title") | join(", ") }}
 -----OUTPUT
 foo, bar, baz
+
+
+
+-----FILE
+{%- set fruits = [
+    { name: 'Apples', quantity: 5 },
+    { name: 'Oranges', quantity: 2 },
+    { name: 'Grapes', quantity: 4 },
+] -%}
+{%- for fruit in fruits|sort((a, b) => a.quantity <=> b.quantity)|column('name') %}
+    {{ fruit }}
+{% endfor -%}
+-----OUTPUT
+Oranges
+Grapes
+Apples
+
+
+
+-----FILE
+{%- set sizes = [34, 36, 38, 40, 42] -%}
+{{ sizes|filter(v => v > 38)|join(', ') }}
+-----OUTPUT
+40, 42
+
+
+
+-----FILE
+{%- set sizes = {
+    xs: 34,
+    s:  36,
+    m:  38,
+    l:  40,
+    xl: 42,
+} -%}
+1.
+{% for k, v in sizes|filter(v => v > 38) -%}
+    {{ k }} = {{ v }}
+{% endfor %}
+2.
+{% for k, v in sizes|filter((v, k) => v > 38 and k != "xl") -%}
+    {{ k }} = {{ v }}
+{% endfor %}
+-----OUTPUT
+1.
+l = 40
+xl = 42
+2.
+l = 40
+
+
+
+-----FILE
+{%- set people = [
+    { first: "Bob", last: "Smith" },
+    { first: "Alice", last: "Dupond" },
+] -%}
+{{ people|map(p => "#{p.first} #{p.last}")|join(', ') }}
+-----OUTPUT
+Bob Smith, Alice Dupond
+
+
+
+-----FILE
+{%- set people = {
+    "Bob": "Smith",
+    "Alice": "Dupond",
+} -%}
+{{ people|map((last, first) => "#{first} #{last}")|join(', ') }}
+-----OUTPUT
+Bob Smith, Alice Dupond

@@ -181,18 +181,43 @@ TWEEG_RUNTIME = function(){
         return String(thing).trim();
     }
 
-    function sort(thing) {
+    function sort(thing, comp) {
+        if (comp == null) comp = function(a, b){
+            return a < b ? -1 : a > b ? 1 : 0;
+        };
         if (Array.isArray(thing))
-            return thing.slice().sort();
+            return thing.slice().sort(comp);
         var result = {};
         Object.keys(thing).map(function(key){
             return { key: key, val: thing[key] };
         }).sort(function(a, b){
-            return a.val < b.val ? -1 : a.val > b.val ? 1 : 0;
+            return comp(a.val, b.val);
         }).forEach(function(x){
             result[x.key] = x.val;
         });
         return result;
+    }
+
+    function filter(thing, predicate) {
+        if (Array.isArray(thing))
+            return thing.filter(predicate);
+        var result = {};
+        Object.keys(thing).map(function(key){
+            return { key: key, val: thing[key] };
+        }).filter(function(el){
+            return predicate(el.val, el.key);
+        }).forEach(function(x){
+            result[x.key] = x.val;
+        });
+        return result;
+    }
+
+    function map(thing, func) {
+        if (Array.isArray(thing))
+            return thing.map(func);
+        return Object.keys(thing).map(function(key){
+            return func(thing[key], key);
+        });
     }
 
     function range(beg, end, step) {
@@ -407,6 +432,8 @@ TWEEG_RUNTIME = function(){
             round: round,
             slice: slice,
             sort: sort,
+            filter: filter,
+            map: map,
             length: length,
             url_encode: url_encode,
             striptags: striptags

@@ -220,6 +220,15 @@ TWEEG_RUNTIME = function(){
         });
     }
 
+    function reduce(thing, func, init) {
+        if (init == null) init = 0;
+        if (Array.isArray(thing))
+            return thing.reduce(func, init);
+        return Object.keys(thing).map(function(key){
+            return thing[key];
+        }).reduce(func, init);
+    }
+
     function range(beg, end, step) {
         if (step == null) step = 1;
         else if (step < 0) step = -step;
@@ -434,6 +443,7 @@ TWEEG_RUNTIME = function(){
             sort: sort,
             filter: filter,
             map: map,
+            reduce: reduce,
             length: length,
             url_encode: url_encode,
             striptags: striptags

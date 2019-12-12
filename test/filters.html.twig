@@ -93,3 +93,13 @@ Bob Smith, Alice Dupond
 {{ people|map((last, first) => "#{first} #{last}")|join(', ') }}
 -----OUTPUT
 Bob Smith, Alice Dupond
+
+
+
+-----FILE
+{%- set numbers = [1, 2, 3] -%}
+{{ numbers|reduce((carry, v) => carry + v) }}
+{{ numbers|reduce((carry, v) => carry + v, 30) }}
+-----OUTPUT
+6
+36

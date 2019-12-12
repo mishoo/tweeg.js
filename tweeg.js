@@ -1204,10 +1204,12 @@ TWEEG = function(RUNTIME){
 
         function compile_lambda(env, node) {
             var args = node.args.map(function(sym){ return sym.value });
-            var body = "function(" + args.map(output_name).join(",") + "){ return(";
+            var body = "function(" + args.map(output_name).join(",") + "){";
             env = env.extend.apply(env, args);
-            body += compile(env, node.body);
-            body += ");}";
+            env = env.extend(); // to avoid defining args as local vars by env.own() below
+            var code = compile(env, node.body);
+            body += output_vars(env.own());
+            body += "return(" + code + ");}";
             return body;
         }
 

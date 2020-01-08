@@ -30,6 +30,7 @@ function runTest(filename) {
     var testname = path.relative(__dirname, filename);
     console.log(`Running ${testname}`);
     var testdata = fs.readFileSync(filename, "utf8");
+    testdata = testdata.replace(/^#.*\n/mg, "");
     var rx_head = /^-----\s*(file|input|output)\s*(?:\:\s*([a-z0-9_.-]+))?\s*/mgi;
     var rx_body = /[^]*?(?=^-----)/mg;
     var pos = 0;

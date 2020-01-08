@@ -145,6 +145,60 @@ TWEEG_RUNTIME = function(){
         return a;
     };
 
+    // NOTE: this is taken from Esrever, MIT-licensed.  Turns out
+    // reversing strings is a phenomenally complex task in this year
+    // and age.  I doubt PHP Twig does it properly anyway, but we can.
+    // https://github.com/mathiasbynens/esrever
+    var reverseString = (function(){
+        var regexSymbolWithCombiningMarks = /([\0-\u02FF\u0370-\u1AAF\u1B00-\u1DBF\u1E00-\u20CF\u2100-\uD7FF\uE000-\uFE1F\uFE30-\uFFFF]|[\uD800-\uDBFF][\uDC00-\uDFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF])([\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]+)/g;
+	var regexSurrogatePair = /([\uD800-\uDBFF])([\uDC00-\uDFFF])/g;
+	return function reverse(string) {
+	    // Step 1: deal with combining marks and astral symbols (surrogate pairs)
+	    string = string
+	        // Swap symbols with their combining marks so the combining marks go first
+		.replace(regexSymbolWithCombiningMarks, function($0, $1, $2) {
+		    // Reverse the combining marks so they will end up in the same order
+		    // later on (after another round of reversing)
+		    return reverse($2) + $1;
+		})
+	        // Swap high and low surrogates so the low surrogates go first
+		.replace(regexSurrogatePair, '$2$1');
+	    // Step 2: reverse the code units in the string
+	    var result = '';
+	    var index = string.length;
+	    while (index--) {
+		result += string.charAt(index);
+	    }
+	    return result;
+	};
+    })();
+
+    function reverse(thing, preserveKeys) {
+        if (Array.isArray(thing)) return thing.slice().reverse();
+        if (thing === "" || thing == null || thing === false) return "";
+        if (typeof thing == "number") thing = String(thing);
+        if (typeof thing == "string") return reverseString(thing);
+
+        // assume it's a mapping.  here comes PHP madness
+        // (https://www.php.net/manual/en/function.array-reverse.php).
+        // by default, numeric keys (that is, keys that can be
+        // converted to numbers) will be renumbered from zero, unless
+        // preserveKeys is true, in which case they will be preserved.
+        var output = {}, numCount = 0;
+        Object.keys(thing).reverse().forEach(function(key){
+            if (preserveKeys) {
+                output[key] = thing[key];
+            } else {
+                if (key == parseFloat(key)) {
+                    output[numCount++] = thing[key];
+                } else {
+                    output[key] = thing[key];
+                }
+            }
+        });
+        return output;
+    }
+
     function batch(array, size, fill) {
         var result = [];
         for (var i = 0; i < array.length; i += size) {
@@ -446,7 +500,8 @@ TWEEG_RUNTIME = function(){
             reduce: reduce,
             length: length,
             url_encode: url_encode,
-            striptags: striptags
+            striptags: striptags,
+            reverse: reverse
         },
 
         operator: {

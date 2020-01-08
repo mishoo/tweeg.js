@@ -1,0 +1,55 @@
+-----FILE
+{{ [ 1, 2, 3] | reverse | join(", ") }}
+{{ [ "a", "b", "c" ] | reverse | join(", ") }}
+{{ "foobar" | reverse }}
+{{ 123456 | reverse }}
+{{ 123456.78 | reverse }}
+{{ "foo 𝌆 bar" | reverse }}
+-----OUTPUT
+3, 2, 1
+c, b, a
+raboof
+654321
+87.654321
+rab 𝌆 oof
+
+
+
+-----FILE
+{% for key, value in {1: "a", 2: "b", 3: "c"}|reverse %}
+    {{ key }}: {{ value }}
+{%- endfor %}
+-----OUTPUT
+0: c
+1: b
+2: a
+
+
+
+# NOTE: this test fails because V8 (and probably other JS engines as well)
+# will reorder numeric keys so the output is actually 1: a, 2: b, 3: c.
+# The workaround would be to use Map instead of objects; requires quite
+# some changes, to be decided if it's worth it.
+#
+# https://bugs.chromium.org/p/v8/issues/detail?id=164
+#
+#
+# -----FILE
+# {% for key, value in {1: "a", 2: "b", 3: "c"}|reverse(true) %}
+#     {{ key }}: {{ value }}
+# {%- endfor %}
+# -----OUTPUT
+# 3: c
+# 2: b
+# 1: a
+
+
+
+-----FILE
+{% for key, value in {a: "a", b: "b", c: "c"}|reverse %}
+    {{ key }}: {{ value }}
+{%- endfor %}
+-----OUTPUT
+c: c
+b: b
+a: a

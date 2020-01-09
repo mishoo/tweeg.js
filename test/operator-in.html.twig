@@ -1,0 +1,5 @@
+-----FILE
+# should just return false if the "bag" variable is not defined
+{{ "foo" in undefined_variable ? "found" : "not found" }}
+-----OUTPUT
+not found

@@ -434,8 +434,8 @@ TWEEG_RUNTIME = function(){
             json_encode: function(val, indent) {
                 return JSON.stringify(val, null, indent);
             },
-            e: function(val) {
-                return html_escape(string(val));
+            e: function(val, strategy) {
+                return escape(string(val), strategy);
             },
             escape: function(val, strategy) {
                 return escape(string(val), strategy);
@@ -527,6 +527,7 @@ TWEEG_RUNTIME = function(){
             },
             "..": range,
             "in": function(thing, data) {
+                if (data == null) return false;
                 if (Array.isArray(data) || typeof data == "string") {
                     return data.indexOf(thing) >= 0;
                 }

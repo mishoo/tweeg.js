@@ -401,7 +401,7 @@ TWEEG = function(RUNTIME){
                     return X.compile(env, node.body);
                 });
                 code += X.output_vars(env.own());
-                if (used_vars.indexOf("varargs") >= 0) {
+                if (used_vars.varargs) {
                     code += "var varargs = [].slice.call(arguments, " + args.length + ");";
                 }
                 code += "return " + body + "}";
@@ -521,8 +521,63 @@ TWEEG = function(RUNTIME){
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
             }
+        },
+
+        "trans": {
+            parse: function(X) {
+                var node = {};
+                if (X.looking_at(X.NODE_SYMBOL, "with")) {
+                    X.skip(X.NODE_SYMBOL);
+                    node.data = X.parse_expression();
+                }
+                X.skip(X.NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^endtrans$/, true));
+                return node;
+            },
+            compile: function(env, X, node) {
+                var body = trans_body(node);
+                X.add_trans(body);
+                var code = "$TR.trans(" + X.compile(env, body);
+                if (node.data) {
+                    code += "," + X.compile(env, node.data);
+                }
+                code += ")";
+                return code;
+            }
+        },
+
+        "transchoice": {
+            parse: function(X) {
+                var node = { count: X.parse_expression() };
+                if (X.looking_at(X.NODE_SYMBOL, "with")) {
+                    X.next();
+                    node.data = X.parse_expression();
+                }
+                X.skip(X.NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(/^endtranschoice$/, true));
+                return node;
+            },
+            compile: function(env, X, node) {
+                var body = trans_body(node);
+                X.add_trans(body);
+                var code = "$TR.transchoice(" + X.compile(env, body)
+                    + "," + X.compile(env, node.count);
+                if (node.data) {
+                    code += "," + X.compile(env, node.data);
+                }
+                code += ")";
+                return code;
+            }
         }
     };
+
+    function trans_body(node) {
+        var body = node.body;
+        if (body.type == "prog" && body.body.length == 1) {
+            return body.body[0];
+        }
+        return body;
+    }
 
     var COMPILER_HOOKS = {};
 
@@ -1098,7 +1153,8 @@ TWEEG = function(RUNTIME){
             add_dependency   : add_dependency,
             is_constant      : is_constant,
             gensym           : gensym,
-            with_tags        : with_tags
+            with_tags        : with_tags,
+            add_trans        : option("add_trans", function(){})
         });
         var autoescape = option("autoescape", "html");
         var dependencies;
@@ -1112,7 +1168,9 @@ TWEEG = function(RUNTIME){
         output_code += exports + "return _self";
         return {
             code: "function(){" + output_code + "}",
-            dependencies: dependencies
+            dependencies: dependencies,
+            environment: env,
+            parameters: parameters
         };
 
         function option(name, def, val) {
@@ -1138,7 +1196,7 @@ TWEEG = function(RUNTIME){
 
         function outside_main(f) {
             var save = parameters;
-            parameters = [];
+            parameters = {};
             try {
                 return f(parameters);
             } finally {
@@ -1147,7 +1205,7 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_main() {
-            parameters = [];
+            parameters = {};
             dependencies = [];
             functions = [];
             exports = "";
@@ -1155,7 +1213,7 @@ TWEEG = function(RUNTIME){
             var body = compile(env, node);
             var main = "function($DATA){";
             main += output_vars(env.own());
-            var args = parameters.reduce(function(a, name){
+            var args = Object.keys(parameters).reduce(function(a, name){
                 if (!/^(?:_self|_context)$/.test(name)) {
                     a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
                 }
@@ -1317,8 +1375,19 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_index(env, node) {
-            return "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
-            //return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
+            var code = "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
+            if (node.expr.type == NODE_SYMBOL) {
+                var param = parameters[node.expr.value];
+                if (param && (node.prop.type == NODE_STR || node.prop.type == NODE_NUMBER)) {
+                    if (!param.sub) {
+                        param.sub = {};
+                    }
+                    if (!param.sub[node.prop.value]) {
+                        param.sub[node.prop.value] = node.prop;
+                    }
+                }
+            }
+            return code;
         }
 
         function compile_filter(env, node) {
@@ -1404,8 +1473,8 @@ TWEEG = function(RUNTIME){
         function compile_sym(env, node) {
             var name = node.value;
             var not_defined = !env.lookup(name);
-            if (not_defined && parameters.indexOf(name) < 0) {
-                parameters.push(name);
+            if (not_defined && !parameters[name]) {
+                parameters[name] = node;
             }
             if (not_defined && RUNTIME.is_global(name)) {
                 return "$GLOBAL(" + JSON.stringify(name) + ")";
@@ -1756,6 +1825,7 @@ TWEEG = function(RUNTIME){
             }
             if (mode() >= LEX_EXPRESSION) {
                 skip_whitespace();
+                start_token();
                 return read_expr_token();
             }
             if ((m = input.skip(/^(\{\{|\{\%|\{#)-?\s*/))) {

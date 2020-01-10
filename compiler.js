@@ -20,6 +20,7 @@ function compile(files, options) {
     var wrap_template = option("wrap_template", tmpl => tmpl);
     var nodeps = option("nodeps", false);
     var warnings = option("warnings", false);
+    var parameters = options.parameters = [];
 
     var code = "";
 
@@ -72,13 +73,23 @@ function compile(files, options) {
             throw new Error(`Template: ${template_name}\n${ex}`);
         }
 
-        if (!nodeps) result.dependencies.forEach(function(file){
-            if (typeof file == "string") {
-                compileFile(file, fullname);
-            } else {
-                warn(`Complex dependency in ${template_name}: ${JSON.stringify(file)}`);
-            }
-        });
+        if (!nodeps) {
+            result.dependencies.forEach(function(file){
+                if (typeof file == "string") {
+                    compileFile(file, fullname);
+                } else {
+                    warn(`Complex dependency in ${template_name}: ${JSON.stringify(file)}`);
+                }
+            });
+        }
+
+        if (result.parameters) {
+            Object.keys(result.parameters).forEach(function(name){
+                let node = result.parameters[name];
+                node.file = fullname;
+                parameters.push(node);
+            });
+        }
 
         code += wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name);
     }

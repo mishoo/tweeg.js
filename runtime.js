@@ -733,8 +733,24 @@ TWEEG_RUNTIME = function(){
 
         global: function(name) {
             return globals[name];
+        },
+
+        trans: function(source, data) {
+            return data ? replaceData(source, data) : source;
+        },
+
+        transchoice: function(source, count, data) {
+            var a = source.split("|");
+            var i = Math.min(count == 0 ? 0 : count == 1 ? 1 : 2, a.length - 1);
+            return data ? replaceData(a[i], data) : a[i];
         }
     };
+
+    function replaceData(str, data) {
+        return str.replace(/%([a-z0-9_]*)%/ig, function(s, p){
+            return p ? data["%" + p + "%"] : "%";
+        });
+    }
 
     return TR;
 };

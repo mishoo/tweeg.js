@@ -1,20 +1,31 @@
 #! /usr/bin/env node
 
-var path = require("path");
-var args = require("minimist")(process.argv.slice(2), {
+const fs = require("fs");
+const path = require("path");
+const args = require("minimist")(process.argv.slice(2), {
       default: {
           b: false,
           path: [],
           escape: "html",
-          base: path.resolve()
+          base: path.resolve(),
+          freevars: false,
+          nodeps: false
       }
 });
-var files = args._;
+const files = args._;
 
 if (!Array.isArray(args.path)) {
     args.path = [ args.path ];
 }
-var paths = {};
+const config = read_config_file();
+const paths = config.paths || {};
+
+Object.keys(paths).forEach(function(id){
+    let dir = paths[id];
+    dir = path.join(config.base, dir);
+    paths[id] = dir;
+});
+
 args.path.forEach(function(def){
     var m = /^([a-z0-9_]+)=(.*)$/i.exec(def);
     if (!m) {
@@ -23,10 +34,57 @@ args.path.forEach(function(def){
     paths[m[1]] = m[2];
 });
 
-var compile = require("../compiler").compile;
-console.log("%s", compile(files, {
-    base     : args.base,
+const compile = require("../compiler").compile;
+const options = {
+    base     : config.base || args.base,
     beautify : args.b,
     paths    : paths,
-    escape   : args.escape
-}));
+    escape   : args.escape,
+    nodeps   : args.nodeps
+};
+const code = compile(files, options);
+
+if (args.freevars) {
+    let byfile = {};
+    options.parameters.forEach(function(node){
+        let a = byfile[node.file];
+        if (!a) {
+            a = byfile[node.file] = [];
+        }
+        a.push(node);
+    });
+    Object.keys(byfile).forEach(function(filename){
+        console.log(filename);
+        let nodes = byfile[filename];
+        nodes.forEach(function(node){
+            console.log(`  - ${node.loc.line}:${node.loc.col} ${node.value}`);
+            if (node.sub) {
+                Object.keys(node.sub).forEach(function(name){
+                    var prop = node.sub[name];
+                    console.log(`    - ${prop.loc.line}:${prop.loc.col} ${node.value}.${name}`);
+                });
+            }
+        });
+    });
+    return;
+}
+
+console.log("%s", code);
+
+function read_config_file() {
+    let dir = path.resolve();
+    do {
+        let cf = path.join(dir, ".tweeg.json");
+        if (fs.existsSync(cf)) {
+            let data = fs.readFileSync(cf);
+            data = JSON.parse(data);
+            data.base = dir;
+            return data;
+        }
+        if (fs.existsSync(path.join(dir, ".git"))) {
+            return { base: dir };
+        }
+        dir = path.resolve(dir, "..");
+    } while (dir != "/");
+    return {};
+}

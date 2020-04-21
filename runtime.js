@@ -128,6 +128,9 @@ TWEEG_RUNTIME = function(){
         if (val === "0") {
             return false;
         }
+        if (val instanceof RawString) {
+            return !!val.value;
+        }
         return !!val;
     }
 
@@ -232,7 +235,7 @@ TWEEG_RUNTIME = function(){
     }
 
     function trim(thing) {
-        return String(thing).trim();
+        return string(thing).trim();
     }
 
     function sort(thing, comp) {
@@ -515,13 +518,13 @@ TWEEG_RUNTIME = function(){
                 throw new Error("Invalid regular expression: " + rx);
             },
             "starts with": function(str, x) {
-                str = String(str);
-                x = String(x);
+                str = string(str);
+                x = string(x);
                 return str.substr(0, x.length) == x;
             },
             "ends with": function(str, x) {
-                str = String(str);
-                x = String(x);
+                str = string(str);
+                x = string(x);
                 var pos = str.lastIndexOf(x);
                 return pos + x.length == str.length;
             },

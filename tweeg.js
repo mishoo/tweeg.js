@@ -1172,15 +1172,18 @@ TWEEG = function(RUNTIME){
         }
 
         function _compile(env, node) {
-            if (is_constant(node)) {
-                return JSON.stringify(node.value);
-            }
             var handler = COMPILER_HOOKS[node.type];
             if (handler) {
                 var code = handler(env, context, node);
                 if (code != null) {
-                    return code;
+                    if (typeof code == "string") {
+                        return code; // JS was provided
+                    }
+                    node = code; // AST was provided, compile that next
                 }
+            }
+            if (is_constant(node)) {
+                return JSON.stringify(node.value);
             }
             switch (node.type) {
               case NODE_PROG        : return compile_prog(env, node);
@@ -1501,7 +1504,12 @@ TWEEG = function(RUNTIME){
             if (!impl || !impl.compile) {
                 throw new Error("Compiler not implemented for `" + node.tag + "`");
             }
-            return impl.compile(env, context, node) || "''";
+            var code = impl.compile(env, context, node);
+            if (code != null && typeof code != "string") {
+                // AST was provided
+                code = compile(env, code);
+            }
+            return code || "''";
         }
 
         function output_vars(vars) {

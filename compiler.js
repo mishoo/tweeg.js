@@ -18,6 +18,7 @@ function compile(files, options) {
     var runtime = option("runtime", TWEEG_RUNTIME());
     var tweeg = option("tweeg", TWEEG(runtime).init());
     var wrap_template = option("wrap_template", tmpl => tmpl);
+    var nodeps = option("nodeps", false);
 
     var code = "";
 
@@ -70,7 +71,7 @@ function compile(files, options) {
             throw new Error(`Template: ${template_name}\n${ex}`);
         }
 
-        result.dependencies.forEach(function(file){
+        if (!nodeps) result.dependencies.forEach(function(file){
             if (typeof file == "string") {
                 compileFile(file, fullname);
             } else {

@@ -356,7 +356,12 @@ TWEEG = function(RUNTIME){
                 var node = {};
                 node.name = X.skip(NODE_SYMBOL);
                 node.vars = X.delimited("(", ")", ",", function(){
-                    return X.skip(NODE_SYMBOL);
+                    var name = X.skip(NODE_SYMBOL), defval;
+                    if (X.looking_at(NODE_OPERATOR, "=")) {
+                        X.next();
+                        defval = X.parse_expression();
+                    }
+                    return { name: name, defval: defval };
                 });
                 X.skip(NODE_STAT_END);
                 node.body = X.parse_until(X.end_body_predicate(/^endmacro$/));
@@ -370,16 +375,30 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                var name = node.name.value;
-                var args = node.vars.map(function(tok){ return tok.value });
-                var code = "function " + X.output_name(name)
+                var args = node.vars.map(function(arg){ return arg.name.value });
+                var code = "function " + X.output_name(node.name.value)
                     + "(" + args.map(X.output_name).join(",") + "){";
-                env = X.root_env.extend.apply(X.root_env, args);
+                env = X.root_env.extend();
+                node.vars.forEach(function(arg){
+                    if (arg.defval) {
+                        code += "if (" + X.output_name(arg.name.value) + " === void 0)"
+                            + X.output_name(arg.name.value) + "=" + X.compile(env, arg.defval) + ";";
+                    }
+                    env = env.extend(arg.name.value);
+                });
                 env = env.extend();
-                var body = X.outside_main(function(){
+                var used_vars;
+                var body = X.outside_main(function(params){
+                    // compiler will collect accessed names that are
+                    // not defined with {%set%} into this array.  we'll use
+                    // that to avoid declaring varargs if it's not necessary.
+                    used_vars = params;
                     return X.compile(env, node.body);
                 });
                 code += X.output_vars(env.own());
+                if (used_vars.indexOf("varargs") >= 0) {
+                    code += "var varargs = [].slice.call(arguments, " + args.length + ");";
+                }
                 code += "return " + body + "}";
                 X.add_export(node.name.value, code);
             }
@@ -523,11 +542,6 @@ TWEEG = function(RUNTIME){
                     return scope;
                 scope = scope.parent;
             }
-        },
-        get: function(name) {
-            if (name in this.vars)
-                return this.vars[name];
-            throw new Error("Undefined variable " + name);
         },
         set: function(name, value) {
             return (this.lookup(name) || this).def(name, value);
@@ -1079,11 +1093,10 @@ TWEEG = function(RUNTIME){
             with_tags        : with_tags
         });
         var autoescape = option("autoescape", "html");
-        var dependencies = [];
-        var parameters = [];
-        var functions = [];
-        var inside_main = true;
-        var exports = "";
+        var dependencies;
+        var parameters;
+        var functions;
+        var exports;
         var output_code = "var _self = $TR.t({ $main: " + compile_main() + "});";
         functions.forEach(function(f){
             output_code += f.code + ";";
@@ -1116,16 +1129,20 @@ TWEEG = function(RUNTIME){
         }
 
         function outside_main(f) {
-            var save = inside_main;
-            inside_main = false;
+            var save = parameters;
+            parameters = [];
             try {
-                return f();
+                return f(parameters);
             } finally {
-                inside_main = save;
+                parameters = save;
             }
         }
 
         function compile_main() {
+            parameters = [];
+            dependencies = [];
+            functions = [];
+            exports = "";
             env = env.extend();
             var body = compile(env, node);
             var main = "function($DATA){";
@@ -1379,7 +1396,7 @@ TWEEG = function(RUNTIME){
         function compile_sym(env, node) {
             var name = node.value;
             var not_defined = !env.lookup(name);
-            if (inside_main && not_defined && parameters.indexOf(name) < 0) {
+            if (not_defined && parameters.indexOf(name) < 0) {
                 parameters.push(name);
             }
             if (not_defined && RUNTIME.is_global(name)) {
@@ -1559,7 +1576,7 @@ TWEEG = function(RUNTIME){
             // since it's called after peeking, the NODE_EXPR_END
             // token is in `peeked`.  Ugly hacks but I have no better
             // ideas.
-            let tok = peeked.shift();
+            var tok = peeked.shift();
             tok = { loc: tok.loc, type: NODE_PUNC, value: "}" };
 
             // two of these are needed.  `loc` will be slightly wrong,

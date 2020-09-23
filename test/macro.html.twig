@@ -51,3 +51,30 @@ works: 10
 -----OUTPUT: index4
 <li><a href="bar">foo</a></li>
 <li><a href="foo">bar</a></li>
+
+
+
+-----FILE: defaults
+{% macro test(foo, bar = 5, baz = bar + 7, x = 3 * baz) %}
+  {{ foo }}, {{ bar }}, {{ baz }}, {{ x }}
+{% endmacro %}
+{% macro join(sep = ",") -%}
+  {{ varargs | join(sep) }}
+{%- endmacro %}
+{{ _self.test(1) }}
+{{ _self.test(1, 2) }}
+{{ _self.test(1, 2, 3) }}
+{{ _self.test(1, 2, 3, 4) }}
+join: {{ _self.join() }}
+join: {{ _self.join("/") }}
+join: {{ _self.join("/", 1) }}
+join: {{ _self.join("/", 1, 2, "trei") }}
+-----OUTPUT: defaults
+1, 5, 12, 36
+1, 2, 9, 27
+1, 2, 3, 9
+1, 2, 3, 4
+join:
+join:
+join: 1
+join: 1/2/trei

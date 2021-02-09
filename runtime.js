@@ -87,6 +87,11 @@ TWEEG_RUNTIME = function(){
         return "";
     }
 
+    function spaceless(html) {
+        return string(html).replace(/^\s+|\s+$/g, "")
+            .replace(/>\s+</g, "><");
+    }
+
     function slice(thing, start, end) {
         if (end != null && end >= 0) {
             end += start;
@@ -504,7 +509,8 @@ TWEEG_RUNTIME = function(){
             length: length,
             url_encode: url_encode,
             striptags: striptags,
-            reverse: reverse
+            reverse: reverse,
+            spaceless: spaceless
         },
 
         operator: {
@@ -629,10 +635,7 @@ TWEEG_RUNTIME = function(){
 
         string: string,
 
-        spaceless: function(html) {
-            return string(html).replace(/^\s+|\s+$/g, "")
-                .replace(/>\s+</, "><");
-        },
+        spaceless: spaceless,
 
         merge: merge,
 

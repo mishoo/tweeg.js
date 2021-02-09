@@ -123,6 +123,42 @@ TWEEG = function(RUNTIME){
 
     /* -----[ core tag parsers ]----- */
 
+    var APPLY_FILTER_TAG = function(rx_endtag) {
+        return {
+            parse: function(X) {
+                function parse_filter() {
+                    return {
+                        name: X.skip(NODE_SYMBOL),
+                        args: (X.looking_at(NODE_PUNC, "(")
+                               ? X.delimited("(", ")", ",", X.parse_expression)
+                               : [])
+                    };
+                }
+                var node = {
+                    filters: [ parse_filter() ]
+                };
+                while (X.looking_at(NODE_OPERATOR, "|")) {
+                    X.next();
+                    node.filters.push(parse_filter());
+                }
+                X.skip(NODE_STAT_END);
+                node.body = X.parse_until(X.end_body_predicate(rx_endtag, true));
+                return node;
+            },
+            compile: function(env, X, node) {
+                var expr = node.filters.reduce(function(expr, filter){
+                    return {
+                        type: NODE_FILTER,
+                        name: filter.name,
+                        args: filter.args,
+                        expr: expr
+                    };
+                }, node.body);
+                return X.compile(env, expr);
+            }
+        };
+    };
+
     var CORE_TAGS = {
         "autoescape": {
             parse: function(X) {
@@ -143,39 +179,8 @@ TWEEG = function(RUNTIME){
             }
         },
 
-        "filter": {
-            parse: function(X) {
-                function parse_filter() {
-                    return {
-                        name: X.skip(NODE_SYMBOL),
-                        args: (X.looking_at(NODE_PUNC, "(")
-                               ? X.delimited("(", ")", ",", X.parse_expression)
-                               : [])
-                    };
-                }
-                var node = {
-                    filters: [ parse_filter() ]
-                };
-                while (X.looking_at(NODE_OPERATOR, "|")) {
-                    X.next();
-                    node.filters.push(parse_filter());
-                }
-                X.skip(NODE_STAT_END);
-                node.body = X.parse_until(X.end_body_predicate(/^endfilter$/, true));
-                return node;
-            },
-            compile: function(env, X, node) {
-                var expr = node.filters.reduce(function(expr, filter){
-                    return {
-                        type: NODE_FILTER,
-                        name: filter.name,
-                        args: filter.args,
-                        expr: expr
-                    };
-                }, node.body);
-                return X.compile(env, expr);
-            }
-        },
+        "filter": APPLY_FILTER_TAG(/^endfilter$/),
+        "apply": APPLY_FILTER_TAG(/^endapply$/),
 
         "if": {
             parse: function parse_if(X) {

@@ -103,3 +103,23 @@ Bob Smith, Alice Dupond
 -----OUTPUT
 6
 36
+
+
+
+-----FILE
+{% apply spaceless %}
+  <div>
+    <span>foo bar</span>
+  </div>
+{% endapply %}
+-----OUTPUT
+<div><span>foo bar</span></div>
+
+
+
+-----FILE
+{%- apply upper|escape(html) -%}
+<div>foo bar</div>
+{%- endapply -%}
+-----OUTPUT
+&lt;DIV&gt;FOO BAR&lt;/DIV&gt;

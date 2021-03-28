@@ -1684,9 +1684,6 @@ TWEEG = function(RUNTIME){
                 }
                 return token(tmp == "}}" ? NODE_EXPR_END : NODE_STAT_END);
             }
-            if (ch == null) {
-                return null;
-            }
             if ((m = input.skip(RX_OPERATOR))) {
                 return token(NODE_OPERATOR, m[0].replace(/\s+/, " "));
             }

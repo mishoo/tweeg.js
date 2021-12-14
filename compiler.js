@@ -19,6 +19,7 @@ function compile(files, options) {
     var tweeg = option("tweeg", TWEEG(runtime).init());
     var wrap_template = option("wrap_template", tmpl => tmpl);
     var nodeps = option("nodeps", false);
+    var warnings = option("warnings", false);
 
     var code = "";
 
@@ -34,7 +35,7 @@ function compile(files, options) {
     } else {
         var ugly = UglifyJS.minify([ code ], {
             fromString: true,
-            warnings: false,
+            warnings: warnings,
             compress: {
                 pure_getters : true,
                 unsafe       : true,
@@ -89,7 +90,9 @@ function compile(files, options) {
     }
 
     function warn(msg) {
-        console.error(msg);
+        if (warnings) {
+            console.error(msg);
+        }
     }
 }
 

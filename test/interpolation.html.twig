@@ -1,0 +1,25 @@
+-----FILE
+{% set test = "foo bar" %}
+{{ "#{test | replace({ 'bar': 'baz' })}" }}
+-----OUTPUT
+foo baz
+
+
+
+-----FILE
+{% set test = "foo bar" %}
+{{ "#{test | replace({ "bar": "baz" })}" }}
+-----OUTPUT
+foo baz
+
+
+
+-----FILE
+{% set url = "/main" %}
+{% set query = {
+    foo: 1,
+    bar: 2,
+} %}
+{{ "#{url}/test?#{query|map((v, k) => "#{k}=#{v}")|join("&")}" | raw }}
+-----OUTPUT
+/main/test?foo=1&bar=2

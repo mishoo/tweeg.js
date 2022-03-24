@@ -1549,8 +1549,9 @@ TWEEG = function(RUNTIME){
     function Lexer(input) {
         input = InputStream(input);
         var peeked = [];
-        var state = [ LEX_TEXT ];
         var current;
+        var interpol_brackets = 0;
+        var state = [ { mode: LEX_TEXT, brackets: 0 } ];
         return {
             next  : next,
             peek  : peek,
@@ -1607,15 +1608,16 @@ TWEEG = function(RUNTIME){
             return peek() == null;
         }
         function push_state(s) {
-            state.push(s);
+            state.push({ mode: s, brackets: interpol_brackets });
         }
 
         function pop_state() {
-            state.pop();
+            var s = state.pop();
+            interpol_brackets = s.brackets;
         }
 
         function mode() {
-            return state[state.length - 1];
+            return state[state.length - 1].mode;
         }
 
         function start_token() {
@@ -1671,9 +1673,13 @@ TWEEG = function(RUNTIME){
         function read_expr_token() {
             var m, ch = input.peek();
             skip_whitespace();
-            if (mode() == LEX_INT_EXPR && input.skip(/^\}/)) {
-                pop_state();
-                return read_interpol_part();
+            if (mode() == LEX_INT_EXPR && input.peek() == "}") {
+                interpol_brackets--;
+                if (!interpol_brackets) {
+                    input.next();
+                    pop_state();
+                    return read_interpol_part();
+                }
             }
             if ((m = input.skip(/^(?:-?\%\}|-?\}\})/))) {
                 pop_state();
@@ -1694,6 +1700,9 @@ TWEEG = function(RUNTIME){
                 return token(NODE_NUMBER, parseFloat(m[0]));
             }
             if (is_punc(ch)) {
+                if (ch == "{" && mode() == LEX_INT_EXPR) {
+                    interpol_brackets++;
+                }
                 return token(NODE_PUNC, input.next());
             }
             if (ch == "'") {
@@ -1721,6 +1730,7 @@ TWEEG = function(RUNTIME){
                     escaped = true;
                 } else if (input.skip(/^\#\{/)) {
                     push_state(LEX_INT_EXPR);
+                    interpol_brackets = 1;
                     return token(NODE_INT_STR, str);
                 } else if (input.skip(/^\"/)) {
                     pop_state();

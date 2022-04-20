@@ -850,8 +850,11 @@ TWEEG = function(RUNTIME){
         function parse_hash_entry() {
             var key;
             if (looking_at(NODE_SYMBOL)) {
-                key = next();
-                key.type = NODE_STR;
+                var sym = next();
+                key = Object.assign({}, sym, { type: NODE_STR });
+                if (looking_at(NODE_PUNC, ",") || looking_at(NODE_PUNC, "}")) {
+                    return { key: key, value: sym };
+                }
             } else {
                 key = parse_expression();
             }

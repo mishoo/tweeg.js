@@ -104,3 +104,25 @@ not null
 1
 -1
 0
+
+
+
+-----FILE
+{%- set first, second = "foo", "bar" -%}
+{{ { first } | json_encode | raw }}
+{{ { first, } | json_encode | raw }}
+{{ { first, second } | json_encode | raw }}
+{{ { first, second, } | json_encode | raw }}
+{{ { first, second, third: "baz" } | json_encode | raw }}
+{{ { first, second, third: "baz", } | json_encode | raw }}
+{{ { first, third: "baz", second } | json_encode | raw }}
+{{ { first, third: "baz", second, } | json_encode | raw }}
+-----OUTPUT
+{"first":"foo"}
+{"first":"foo"}
+{"first":"foo","second":"bar"}
+{"first":"foo","second":"bar"}
+{"first":"foo","second":"bar","third":"baz"}
+{"first":"foo","second":"bar","third":"baz"}
+{"first":"foo","third":"baz","second":"bar"}
+{"first":"foo","third":"baz","second":"bar"}

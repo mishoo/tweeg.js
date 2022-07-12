@@ -239,8 +239,22 @@ TWEEG_RUNTIME = function(){
         return Object.keys(thing);
     }
 
-    function trim(thing) {
-        return string(thing).trim();
+    function trim(thing, char, side) {
+        thing = string(thing);
+        if (char == null && side == null) {
+            return thing.trim();
+        }
+        if (char == null) char = " ";
+        for (var i = 0, j = thing.length - 1; i <= j;) {
+            var left = thing.charAt(i) == char;
+            var right = thing.charAt(j) == char;
+            if (!left && !right) break;
+            if (left) i++;
+            if (right) j--;
+        }
+        return side == "left" ? thing.substr(i)
+            :  side == "right" ? thing.substring(0, j + 1)
+            :  thing.substring(i, j + 1);
     }
 
     function sort(thing, comp) {

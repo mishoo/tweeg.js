@@ -123,3 +123,20 @@ Bob Smith, Alice Dupond
 {%- endapply -%}
 -----OUTPUT
 &lt;DIV&gt;FOO BAR&lt;/DIV&gt;
+
+
+
+-----FILE
+[{{ '  standard trim  ' | trim }}]
+[{{ '  standard trim  ' | trim(" ", "left") }}]
+[{{ '  standard trim  ' | trim(" ", "right") }}]
+[{{ '..char trim..' | trim(".") }}]
+[{{ '..char trim..' | trim(".", "left") }}]
+[{{ '..char trim..' | trim(".", "right") }}]
+-----OUTPUT
+[standard trim]
+[standard trim  ]
+[  standard trim]
+[char trim]
+[char trim..]
+[..char trim]

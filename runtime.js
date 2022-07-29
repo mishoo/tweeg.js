@@ -49,6 +49,10 @@ TWEEG_RUNTIME = function(){
         }));
     }
 
+    function rx_escape(str) {
+        return str.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    }
+
     function escape(str, strategy) {
         if (typeof str == "string") {
             switch (strategy) {
@@ -487,18 +491,14 @@ TWEEG_RUNTIME = function(){
             },
             replace: function(str, parts) {
                 str = string(str);
-                Object.keys(parts).forEach(function(substr){
-                    var replacement = parts[substr], pos = str.length;
-                    while (replacement && str) {
-                        pos = str.lastIndexOf(substr, pos);
-                        if (pos < 0) {
-                            break;
-                        } else {
-                            str = str.substr(0, pos) + replacement + str.substr(pos + substr.length);
-                        }
-                    }
+                var rx = parts.__tweeg_js_rx_cache__;
+                if (!rx) {
+                    rx = new RegExp("(" + Object.keys(parts).map(rx_escape).join("|") + ")", "g");
+                    parts.__tweeg_js_rx_cache__ = rx;
+                }
+                return str.replace(rx, function(match) {
+                    return parts[match];
                 });
-                return str;
             },
             capitalize: function(str) {
                 return (str = string(str)).charAt(0).toUpperCase() + str.substr(1);

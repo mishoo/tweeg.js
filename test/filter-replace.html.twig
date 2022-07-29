@@ -4,3 +4,17 @@
 -----OUTPUT
 I like foo and bar.
 I like foofoo bar foofoo and bar foofoo bar.
+
+
+
+-----FILE
+{{ "foo [bar] baz" | replace({ "[": "<strong>", "]": "</strong>" }) | raw }}
+-----OUTPUT
+foo <strong>bar</strong> baz
+
+
+
+-----FILE
+{{ "link class" | replace({ "link": "<a class='foo'>link</a>", "class": "<span>class</span>" }) | raw }}
+-----OUTPUT
+<a class='foo'>link</a> <span>class</span>

@@ -435,6 +435,15 @@ TWEEG_RUNTIME = function(){
         return val;
     }
 
+    function toArray(thing) {
+        if (thing == null) return [];
+        if (Array.isArray(thing)) return thing;
+        if (typeof thing == 'string') return thing.split("");
+        return Object.keys(thing).map(function(key){
+            return thing[key];
+        });
+    }
+
     var globals = {};
 
     var TR = {
@@ -472,8 +481,11 @@ TWEEG_RUNTIME = function(){
             "default": function(val, def) {
                 return empty(val) ? def : val;
             },
-            join: function(array, separator) {
-                return array.join(separator);
+            join: function(thing, separator, lastSep) {
+                var a = toArray(thing);
+                if (!lastSep || a.length < 2)
+                    return a.join(separator);
+                return a.slice(0, -1).join(separator) + lastSep + a[a.length - 1];
             },
             split: function(thing, separator) {
                 return string(thing).split(separator);

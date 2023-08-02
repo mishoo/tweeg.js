@@ -63,7 +63,7 @@ function compile(files, options) {
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast, result;
 
-        if (base) {
+        if (base && !source) {
             template_name = path.relative(base, template_name);
         }
 

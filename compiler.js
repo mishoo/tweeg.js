@@ -63,6 +63,10 @@ function compile(files, options) {
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast, result;
 
+        if (base) {
+            template_name = path.relative(base, template_name);
+        }
+
         try {
             ast = tweeg.parse(tmpl);
             result = tweeg.compile(ast, {

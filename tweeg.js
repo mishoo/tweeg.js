@@ -545,8 +545,11 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                var code = X.compile_func(X.root_env, node.body);
                 var name = "%" + node.name.value;
+                var code = X.compile_func(X.root_env, node.body, {
+                    block: true,
+                    name: name
+                });
                 X.add_block(name, code);
                 return "_self[" + JSON.stringify(name) + "]($DATA)";
             }
@@ -1152,6 +1155,7 @@ TWEEG = function(RUNTIME){
         var macros = {};
         var blocks = {};
         var parent = null;
+        var func_info = null;
         var main = compile_func(env, root);
         var output_code = preamble.join("") + "return $TR.t("
             + main
@@ -1215,8 +1219,10 @@ TWEEG = function(RUNTIME){
             }
         }
 
-        function compile_func(env, node) {
+        function compile_func(env, node, info) {
             var save_globals = globals;
+            var save_func_info = func_info;
+            func_info = info;
             globals = [];
             dependencies = [];
             env = env.extend();
@@ -1234,11 +1240,12 @@ TWEEG = function(RUNTIME){
             }
             var is_child_template = node === root && parent;
             if (is_child_template) {
-                code += "return _self.$extends(" + parent + ",$DATA)}";
+                code += "return _self.$extends(" + parent + ",$DATA,$TR)}";
             } else {
                 code += "return $DATA = $ENV_EXT($DATA)," + body + "}";
             }
             globals = save_globals;
+            func_info = save_func_info;
             return code;
         }
 
@@ -1366,6 +1373,9 @@ TWEEG = function(RUNTIME){
             if (node.func.type == NODE_SYMBOL) {
                 if (env.lookup(node.func.value)) {
                     return compile(env, node.func) + args;
+                }
+                if (node.func.value == "parent" && func_info && func_info.block) {
+                    return "_self.$parent_block(" + JSON.stringify(func_info.name) + ",$DATA)";
                 }
                 return "$FUNC[" + JSON.stringify(node.func.value) + "]" + args;
             }

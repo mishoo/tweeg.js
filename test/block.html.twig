@@ -14,3 +14,39 @@
 Name: The Foo, ID: foo
 Name: The Bar, ID: bar
 Name: The Baz, ID: baz
+
+
+
+-----FILE: base.twig
+Start
+{% for post in posts %}
+    {% block post %}
+        <h1>{{ post.title }}</h1>
+        <p>{{ post.body }}</p>
+    {% endblock %}
+{% endfor %}
+End
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% block post %}
+    <article>
+        <header>{{ post.title }}</header>
+        <section>{{ post.text }}</section>
+    </article>
+{% endblock %}
+-----INPUT: child.twig
+{ posts: [
+    { title: "Post 1", text: "Post 1 text" },
+    { title: "Post 2", text: "Post 2 text" },
+] }
+-----OUTPUT: child.twig
+Start
+<article>
+<header>Post 1</header>
+<section>Post 1 text</section>
+</article>
+<article>
+<header>Post 2</header>
+<section>Post 2 text</section>
+</article>
+End

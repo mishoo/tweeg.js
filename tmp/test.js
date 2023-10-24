@@ -18,7 +18,13 @@ let code = compile([
     "base.html.twig",
     "index.html.twig",
 ], {
+    runtime: runtime,
+    tweeg: tweeg,
     beautify: true
 });
 
+new Function("return " + code)()(runtime);
+
 console.log(code);
+
+console.log(runtime.exec("index.html.twig"));

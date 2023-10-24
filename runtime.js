@@ -7,7 +7,31 @@ TWEEG_RUNTIME = function(){
 
     var PATHS = {};
 
-    function Template() {}
+    function Template(main, blocks, macros, parent) {
+        this.$main = main;
+        TR.merge(this, blocks, macros);
+        this.$blocks = blocks;
+        this.$macros = macros;
+        this.$parent = parent;
+    }
+
+    Template.prototype.$extends = function(base, data, runtime) {
+        base = runtime.get(base);
+        var tmpl = new Template(
+            base.$main,
+            Object.assign({}, base.$blocks, this.$blocks),
+            base.$macros,
+            base
+        );
+        tmpl.$name = this.$name;
+        return TR.with(tmpl, function(tmpl){
+            return "" + tmpl.$main(data || {});
+        });
+    };
+
+    Template.prototype.$parent_block = function(block_name, data) {
+        return this.$parent.$blocks[block_name].call(this.$parent, data);
+    };
 
     function replace_paths(filename) {
         return filename.replace(/@[a-z0-9_]+/ig, function(name){
@@ -448,10 +472,7 @@ TWEEG_RUNTIME = function(){
 
     var TR = {
         t: function(main, blocks, macros) {
-            let tmpl = new Template();
-            tmpl.$main = main;
-            TR.merge(tmpl, blocks, macros);
-            return tmpl;
+            return new Template(main, blocks, macros);
         },
 
         env_ext: function(env) {

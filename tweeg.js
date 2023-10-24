@@ -1149,7 +1149,7 @@ TWEEG = function(RUNTIME){
             with_tags        : with_tags
         });
         var autoescape = option("autoescape", "html");
-        var dependencies;
+        var dependencies = [];
         var globals;
         var preamble = [];
         var macros = {};
@@ -1224,7 +1224,6 @@ TWEEG = function(RUNTIME){
             var save_func_info = func_info;
             func_info = info;
             globals = [];
-            dependencies = [];
             env = env.extend();
             var body = compile(env, node);
             var code = "function($DATA){ var _self = this; ";

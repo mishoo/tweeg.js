@@ -15,7 +15,7 @@ var fs = require("fs");
 // console.log(TWEEG.wrap_code(result.code));
 
 let code = compile([
-    "base.html.twig",
+    //"base.html.twig",
     "index.html.twig",
 ], {
     runtime: runtime,

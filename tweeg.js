@@ -1227,7 +1227,7 @@ TWEEG = function(RUNTIME){
             env = env.extend();
             var body = compile(env, node);
             var code = "function($DATA){ var _self = this; ";
-            code += output_vars(env.own());
+            code += output_vars(env.own().filter(name => !globals.includes(name)));
             var args = globals.reduce(function(a, name){
                 if (!/^(?:_self|_context)$/.test(name)) {
                     a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");

@@ -447,10 +447,24 @@ TWEEG_RUNTIME = function(){
     var globals = {};
 
     var TR = {
-        t: function(data) {
-            // make a Template instance
-            // XXX: inheritance
-            return TR.merge(new Template(), data);
+        t: function(main, blocks, macros) {
+            let tmpl = new Template();
+            tmpl.$main = main;
+            TR.merge(tmpl, blocks, macros);
+            return tmpl;
+        },
+
+        env_ext: function(env) {
+            return Object.create(env);
+        },
+
+        env_set: function(env, name, val) {
+            var dest = env;
+            if (name in env) {
+                while (dest && !HOP.call(dest, name))
+                    dest = Object.getPrototypeOf(dest);
+            }
+            return (dest || env)[name] = val;
         },
 
         func: {
@@ -596,7 +610,8 @@ TWEEG_RUNTIME = function(){
             return safeString(ret);
         },
 
-        for: function(data, f) {
+        for: function($DATA, valsym, keysym, data, f) {
+            $DATA = TR.env_ext($DATA);
             if (data == null) data = [];
             var is_array = Array.isArray(data);
             var keys = is_array ? null : Object.keys(data);
@@ -612,7 +627,11 @@ TWEEG_RUNTIME = function(){
             var result = [];
             function add(el, i) {
                 loop.last = !loop.revindex0;
-                var val = f(loop, el, i);
+                $DATA[valsym] = el;
+                if (keysym) {
+                    $DATA[keysym] = i;
+                }
+                var val = f($DATA, loop, el, i);
                 if (val !== TR) {
                     // for `for`-s that define a condition, the
                     // compiled code returns TR by convention when the

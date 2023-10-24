@@ -1,4 +1,24 @@
-var runtime = TWEEG_RUNTIME();
-$TWEEG(runtime);
+require("../tweeg.js");
+require("../runtime.js");
+let compile = require("../compiler.js").compile;
 
-console.log(runtime.exec("tmp/macros.html.twig", { foo: "<BLERG>" }));
+var runtime = TWEEG_RUNTIME();
+var tweeg = TWEEG(runtime);
+tweeg.init();
+
+var fs = require("fs");
+
+// var test = fs.readFileSync("base.html.twig", "utf8");
+// var ast = tweeg.parse(test);
+// //console.log(JSON.stringify(ast, null, 2));
+// var result = tweeg.compile(ast);
+// console.log(TWEEG.wrap_code(result.code));
+
+let code = compile([
+    "base.html.twig",
+    "index.html.twig",
+], {
+    beautify: true
+});
+
+console.log(code);

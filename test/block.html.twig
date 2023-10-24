@@ -1,0 +1,16 @@
+-----FILE: users
+{% for user in users %}
+  {% block user %}
+    Name: {{ user.name }}, ID: {{ user.id }}
+  {% endblock %}
+{% endfor %}
+-----INPUT: users
+{ users: [
+    { id: "foo", name: "The Foo" },
+    { id: "bar", name: "The Bar" },
+    { id: "baz", name: "The Baz" },
+] }
+-----OUTPUT: users
+Name: The Foo, ID: foo
+Name: The Bar, ID: bar
+Name: The Baz, ID: baz

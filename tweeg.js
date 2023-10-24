@@ -244,8 +244,11 @@ TWEEG = function(RUNTIME){
                 var cond = node.cond ? X.compile(env, node.cond) : null;
                 env = env.extend();
                 var body = X.compile(env, node.body);
-                var code = "$FOR(" + data + ","
-                    + "function("
+                var code = "$FOR($DATA,"
+                    + JSON.stringify(node.sym.value) + ","
+                    + (node.sym2 ? JSON.stringify(node.sym2.value) : "null") + ","
+                    + data + ","
+                    + "function($DATA,"
                     + X.output_name("loop");
                 if (node.sym2) {
                     code += "," + X.output_name(node.sym2.value);
@@ -306,9 +309,9 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 return "(" + node.defs.map(function(def){
                     var value = X.compile(env, def.value);
-                    env.set(def.name.value);
+                    env.set(def.name.value, def.value);
                     return X.output_name(def.name.value)
-                        + "=" + value;
+                        + "=$ENV_SET($DATA, " + JSON.stringify(X.output_name(def.name.value)) + "," + value + ")";
                 }) + ",'')";
             }
         },
@@ -349,7 +352,7 @@ TWEEG = function(RUNTIME){
                 }
                 code += ")}";
                 if (node.only) {
-                    X.add_function(name, code);
+                    X.add_preamble(code);
                     code = name;
                 }
                 return "(" + code + "(" + expr + "))";
@@ -405,7 +408,7 @@ TWEEG = function(RUNTIME){
                     code += "var varargs = [].slice.call(arguments, " + args.length + ");";
                 }
                 code += "return " + body + "}";
-                X.add_export(node.name.value, code);
+                X.add_macro(node.name.value, code);
             }
         },
 
@@ -504,22 +507,62 @@ TWEEG = function(RUNTIME){
                 var args = [
                     X.compile(env, node.template)
                 ];
-                var ctx = X.make_context(env);
                 if (node.vars) {
                     if (node.only) {
                         args.push(X.compile(env, node.vars));
                     } else {
-                        args.push("$MERGE({},$DATA," +
-                                  (ctx ? ctx + "," : "") +
-                                  X.compile(env, node.vars) + ")");
+                        args.push("$MERGE({},$DATA," + X.compile(env, node.vars) + ")");
                     }
                 } else if (!node.only) {
-                    args.push("$MERGE({},$DATA" + (ctx ? "," + ctx : "") + ")");
+                    args.push("$DATA");
                 }
                 if (node.optional) {
                     args.push("true");
                 }
                 return "$INCLUDE(" + args.join(",") + ")";
+            }
+        },
+
+        "block": {
+            parse: function(X) {
+                var node = {
+                    name: X.skip(NODE_SYMBOL)
+                };
+                if (X.looking_at(NODE_STAT_END)) {
+                    X.skip(NODE_STAT_END);
+                    node.body = X.parse_until(X.end_body_predicate(/^endblock$/));
+                    X.skip(NODE_SYMBOL);
+                    if (X.looking_at(NODE_SYMBOL)) {
+                        if (X.next().value != node.name.value) {
+                            X.croak("Wrong name in endblock");
+                        }
+                    }
+                    X.skip(NODE_STAT_END);
+                } else {
+                    node.body = X.parse_expression();
+                    X.skip(NODE_STAT_END);
+                }
+                return node;
+            },
+            compile: function(env, X, node) {
+                var code = X.compile_func(X.root_env, node.body);
+                var name = "%" + node.name.value;
+                X.add_block(name, code);
+                return "_self[" + JSON.stringify(name) + "]($DATA)";
+            }
+        },
+
+        "extends": {
+            parse: function(X) {
+                var node = {
+                    base: X.parse_expression()
+                };
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                X.add_dependency(node.base);
+                X.set_parent(X.compile(env, node.base));
             }
         }
     };
@@ -1080,7 +1123,7 @@ TWEEG = function(RUNTIME){
 
     /* -----[ Das Compiler ]----- */
 
-    function compile(node, options, env) {
+    function compile(root, options, env) {
         if (!env) env = new Environment();
         var context = RUNTIME.merge(Object.create(NODES), {
             root_env         : env,
@@ -1090,26 +1133,31 @@ TWEEG = function(RUNTIME){
             compile_cond     : compile_cond,
             output_vars      : output_vars,
             output_name      : output_name,
-            add_function     : add_function,
-            add_export       : add_export,
+            add_preamble     : add_preamble,
+            add_macro        : add_macro,
+            add_block        : add_block,
             outside_main     : outside_main,
+            compile_func     : compile_func,
             with_escaping    : with_escaping,
-            make_context     : make_context,
             add_dependency   : add_dependency,
+            set_parent       : set_parent,
             is_constant      : is_constant,
             gensym           : gensym,
             with_tags        : with_tags
         });
         var autoescape = option("autoescape", "html");
         var dependencies;
-        var parameters;
-        var functions;
-        var exports;
-        var output_code = "var _self = $TR.t({ $main: " + compile_main() + "});";
-        functions.forEach(function(f){
-            output_code += f.code + ";";
-        });
-        output_code += exports + "return _self";
+        var globals;
+        var preamble = [];
+        var macros = {};
+        var blocks = {};
+        var parent = null;
+        var main = compile_func(env, root);
+        var output_code = preamble.join("") + "return $TR.t("
+            + main
+            + "," + make_object(blocks)
+            + "," + make_object(macros)
+            + ");";
         return {
             code: "function(){" + output_code + "}",
             dependencies: dependencies
@@ -1121,8 +1169,22 @@ TWEEG = function(RUNTIME){
             return val === undefined ? def : val;
         }
 
-        function add_export(name, code) {
-            exports += "_self[" + JSON.stringify(name) + "]=" + code + ";";
+        function add_preamble(code) {
+            preamble.push(code + ";");
+        }
+
+        function add_macro(name, code) {
+            macros[name] = code;
+        }
+
+        function add_block(name, code) {
+            blocks[name] = code;
+        }
+
+        function make_object(defs) {
+            return "{" + Object.keys(defs).map(function(key){
+                return JSON.stringify(key) + ":" + defs[key];
+            }).join(",") + "}";
         }
 
         function add_dependency(node) {
@@ -1130,68 +1192,62 @@ TWEEG = function(RUNTIME){
                 dependencies.push(node.value);
             } else if (node.type == NODE_ARRAY) {
                 node.body.forEach(add_dependency);
+            } else if (node.type == NODE_COND) {
+                add_dependency(node.then);
+                add_dependency(node.else);
             } else {
                 // let's mark complex deps by just adding the AST node
                 dependencies.push(node);
             }
         }
 
+        function set_parent(p) {
+            parent = p;
+        }
+
         function outside_main(f) {
-            var save = parameters;
-            parameters = [];
+            var save = globals;
+            globals = [];
             try {
-                return f(parameters);
+                return f(globals);
             } finally {
-                parameters = save;
+                globals = save;
             }
         }
 
-        function compile_main() {
-            parameters = [];
+        function compile_func(env, node) {
+            var save_globals = globals;
+            globals = [];
             dependencies = [];
-            functions = [];
-            exports = "";
             env = env.extend();
             var body = compile(env, node);
-            var main = "function($DATA){";
-            main += output_vars(env.own());
-            var args = parameters.reduce(function(a, name){
+            var code = "function($DATA){ var _self = this; ";
+            code += output_vars(env.own());
+            var args = globals.reduce(function(a, name){
                 if (!/^(?:_self|_context)$/.test(name)) {
                     a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
                 }
                 return a;
             }, []);
             if (args.length) {
-                main += "var " + args.join(",") + ";";
+                code += "var " + args.join(",") + ";";
             }
-            main += "return " + body + "}";
-            return main;
-        }
-
-        function make_context(env) {
-            var ctx = [];
-            var has = false;
-            for (var i in env.vars) {
-                // we explicitly want to dig prototype components too,
-                // but exclude internal stuff, which will start with $
-                if (!/^\$/.test(i)) {
-                    ctx.push(JSON.stringify(i) + ":" + output_name(i));
-                    has = true;
-                }
+            var is_child_template = node === root && parent;
+            if (is_child_template) {
+                code += "return _self.$extends(" + parent + ",$DATA)}";
+            } else {
+                code += "return $DATA = $ENV_EXT($DATA)," + body + "}";
             }
-            return has ? "{" + ctx.join(",") + "}" : null;
+            globals = save_globals;
+            return code;
         }
 
         function gensym() {
             return "$SYM" + (++GENSYM);
         }
 
-        function add_function(name, code) {
-            functions.push({ name: name, code: code });
-        }
-
         function compile(env, node) {
-            // var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
+            //var loc = node.loc ? ("/*" + node.loc.line + ":" + node.loc.col + "*/") : "";
             var loc = "";
             return parens(loc + _compile(env, node));
         }
@@ -1404,8 +1460,8 @@ TWEEG = function(RUNTIME){
         function compile_sym(env, node) {
             var name = node.value;
             var not_defined = !env.lookup(name);
-            if (not_defined && parameters.indexOf(name) < 0) {
-                parameters.push(name);
+            if (not_defined && globals.indexOf(name) < 0) {
+                globals.push(name);
             }
             if (not_defined && RUNTIME.is_global(name)) {
                 return "$GLOBAL(" + JSON.stringify(name) + ")";
@@ -1876,5 +1932,7 @@ var $BOOL = $TR.bool\
 ,$STR = $TR.string\
 ,$INDEX = $TR.index\
 ,$GLOBAL = $TR.global\
+,$ENV_EXT = $TR.env_ext\
+,$ENV_SET = $TR.env_set\
 ;" + code + "}";
 };

@@ -22,10 +22,11 @@ Start
 {% for post in posts %}
     {% block post %}
         <h1>{{ post.title }}</h1>
-        <p>{{ post.body }}</p>
+        <p>{{ post.text }}</p>
     {% endblock %}
 {% endfor %}
 End
+
 -----FILE: child.twig
 {% extends "base.twig" %}
 {% block post %}
@@ -49,4 +50,28 @@ Start
 <header>Post 2</header>
 <section>Post 2 text</section>
 </article>
+End
+
+-----FILE: child2.twig
+{% extends "base.twig" %}
+{% block post %}
+    <div title="{{ post.title }}" data-text="{{ post.text }}">
+        {{ parent() }}
+    </div>
+{% endblock %}
+-----INPUT: child2.twig
+{ posts: [
+    { title: "Post 1", text: "Post 1 text" },
+    { title: "Post 2", text: "Post 2 text" },
+] }
+-----OUTPUT: child2.twig
+Start
+<div title="Post 1" data-text="Post 1 text">
+<h1>Post 1</h1>
+<p>Post 1 text</p>
+</div>
+<div title="Post 2" data-text="Post 2 text">
+<h1>Post 2</h1>
+<p>Post 2 text</p>
+</div>
 End

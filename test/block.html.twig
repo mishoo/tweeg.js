@@ -75,3 +75,29 @@ Start
 <p>Post 2 text</p>
 </div>
 End
+
+
+
+-----FILE: one.twig
+This is first base.
+{% block test %}FIRST IMPL{% endblock %}
+
+-----FILE: two.twig
+{% extends "one.twig" %}
+{% block test %}
+    SECOND IMPL
+    {{ parent() }}
+{% endblock %}
+
+-----FILE: three.twig
+{% extends "two.twig" %}
+{% block test %}
+    {{ parent() }}
+    THIRD IMPL
+{% endblock %}
+
+-----OUTPUT: three.twig
+This is first base.
+SECOND IMPL
+FIRST IMPL
+THIRD IMPL

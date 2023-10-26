@@ -16,15 +16,14 @@ var fs = require("fs");
 
 let code = compile([
     //"base.html.twig",
-    "index.html.twig",
+    "second.html.twig",
 ], {
     runtime: runtime,
     tweeg: tweeg,
     beautify: true
 });
 
-new Function("return " + code)()(runtime);
-
 console.log(code);
 
-console.log(runtime.exec("index.html.twig"));
+new Function("return " + code)()(runtime);
+console.log(runtime.exec("second.html.twig"));

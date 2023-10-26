@@ -1,0 +1,13 @@
+{% extends "index.html.twig" %}
+
+{% block title %}Second{% endblock %}
+{% block head %}
+    {{ parent() }}
+    <style type="text/css">
+        .second { color: blue; }
+    </style>
+{% endblock %}
+{% block content %}
+    {{ parent() }}
+    <h1>Second</h1>
+{% endblock %}

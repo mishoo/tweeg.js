@@ -551,7 +551,11 @@ TWEEG = function(RUNTIME){
                     name: name
                 });
                 X.add_block(name, code);
-                return "_self[" + JSON.stringify(name) + "]($DATA)";
+                if (!X.get_parent() || X.get_func_level() > 1) {
+                    return "$BLOCK($DATA," + JSON.stringify(name) + ")";
+                } else {
+                    return '""';
+                }
             }
         },
 
@@ -565,7 +569,9 @@ TWEEG = function(RUNTIME){
             },
             compile: function(env, X, node) {
                 X.add_dependency(node.base);
-                X.set_parent(X.compile(env, node.base));
+                let parent = X.compile(env, node.base);
+                X.set_parent(parent);
+                return `($_base = $EXTEND(${parent}, $DATA), "")`;
             }
         }
     };
@@ -1144,10 +1150,13 @@ TWEEG = function(RUNTIME){
             with_escaping    : with_escaping,
             add_dependency   : add_dependency,
             set_parent       : set_parent,
+            get_parent       : get_parent,
+            get_func_level   : get_func_level,
             is_constant      : is_constant,
             gensym           : gensym,
             with_tags        : with_tags
         });
+        var level = 0;
         var autoescape = option("autoescape", "html");
         var dependencies = [];
         var globals;
@@ -1157,13 +1166,13 @@ TWEEG = function(RUNTIME){
         var parent = null;
         var func_info = null;
         var main = compile_func(env, root);
-        var output_code = preamble.join("") + "return $TR.t("
+        var output_code = preamble.join("") + "var _self = $TR.t("
             + main
             + "," + make_object(blocks)
             + "," + make_object(macros)
             + ");";
         return {
-            code: "function(){" + output_code + "}",
+            code: "function(){" + output_code + " return _self; }",
             dependencies: dependencies
         };
 
@@ -1209,6 +1218,14 @@ TWEEG = function(RUNTIME){
             parent = p;
         }
 
+        function get_parent() {
+            return parent;
+        }
+
+        function get_func_level() {
+            return level;
+        }
+
         function outside_main(f) {
             var save = globals;
             globals = [];
@@ -1224,10 +1241,12 @@ TWEEG = function(RUNTIME){
             var save_func_info = func_info;
             func_info = info;
             globals = [];
+            ++level;
             env = env.extend();
             var body = compile(env, node);
-            var code = "function($DATA){ var _self = this; ";
-            code += output_vars(env.own().filter(name => !globals.includes(name)));
+            var code = "function($DATA){ var $_output, $_base; ";
+            var own_vars = env.own().filter(name => !globals.includes(name));
+            code += output_vars(own_vars);
             var args = globals.reduce(function(a, name){
                 if (!/^(?:_self|_context)$/.test(name)) {
                     a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
@@ -1237,12 +1256,11 @@ TWEEG = function(RUNTIME){
             if (args.length) {
                 code += "var " + args.join(",") + ";";
             }
-            var is_child_template = node === root && parent;
-            if (is_child_template) {
-                code += "return _self.$extends(" + parent + ",$DATA,$TR)}";
-            } else {
-                code += "return $DATA = $ENV_EXT($DATA)," + body + "}";
-            }
+            code += "$DATA=$ENV_EXT($DATA);";
+            var is_child = node === root && parent;
+            code += "$_output=" + body + ";";
+            code += "return " + (is_child ? "$_base" : "$_output") + "}";
+            --level;
             globals = save_globals;
             func_info = save_func_info;
             return code;
@@ -1374,7 +1392,7 @@ TWEEG = function(RUNTIME){
                     return compile(env, node.func) + args;
                 }
                 if (node.func.value == "parent" && func_info && func_info.block) {
-                    return "_self.$parent_block(" + JSON.stringify(func_info.name) + ",$DATA)";
+                    return "$PARENT($DATA," + JSON.stringify(func_info.name) + ")";
                 }
                 return "$FUNC[" + JSON.stringify(node.func.value) + "]" + args;
             }
@@ -1943,5 +1961,8 @@ var $BOOL = $TR.bool\
 ,$GLOBAL = $TR.global\
 ,$ENV_EXT = $TR.env_ext\
 ,$ENV_SET = $TR.env_set\
+,$EXTEND = $TR.extend\
+,$PARENT = $TR.parent\
+,$BLOCK = $TR.block\
 ;" + code + "}";
 };

@@ -2,36 +2,37 @@ TWEEG_RUNTIME = function(){
     "use strict";
 
     var REGISTRY = {};
-
-    var CURRENT = null;
-
     var PATHS = {};
 
-    function Template(main, blocks, macros, parent) {
-        this.$main = main;
-        TR.merge(this, blocks, macros);
-        this.$blocks = blocks;
-        this.$macros = macros;
-        this.$parent = parent;
+    // runtime information
+    var CURRENT = null;         // currently running template
+    var BLOCKS = [];            // currently available blocks
+
+    function findBlock(name) {
+        for (var i = 0; i < BLOCKS.length; ++i) {
+            var b = BLOCKS[i];
+            if (b[name]) return b;
+        }
     }
 
-    Template.prototype.$extends = function(base, data, runtime) {
-        base = runtime.get(base);
-        var tmpl = new Template(
-            base.$main,
-            Object.assign({}, base.$blocks, this.$blocks),
-            base.$macros,
-            base
-        );
-        tmpl.$name = this.$name;
-        return TR.with(tmpl, function(tmpl){
-            return "" + tmpl.$main(data || {});
-        });
-    };
+    function withShadowBlock(name, func) {
+        var b = findBlock(name);
+        if (!b) return func();
+        var save_handler = b[name];
+        try {
+            delete b[name];
+            return func();
+        } finally {
+            b[name] = save_handler;
+        }
+    }
 
-    Template.prototype.$parent_block = function(block_name, data) {
-        return this.$parent.$blocks[block_name].call(this.$parent, data);
-    };
+    function Template(main, blocks, macros) {
+        this.$main = main;
+        TR.merge(this, macros);
+        this.$macros = macros;
+        this.$blocks = blocks;
+    }
 
     function replace_paths(filename) {
         return filename.replace(/@[a-z0-9_]+/ig, function(name){
@@ -709,7 +710,7 @@ TWEEG_RUNTIME = function(){
             if (Array.isArray(name)) {
                 // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {
-                    var ret = TR.exec(name[i], true, context);
+                    var ret = TR.exec(name[i], context, true);
                     if (ret != null) {
                         return ret;
                     }
@@ -720,6 +721,22 @@ TWEEG_RUNTIME = function(){
             } else {
                 return TR.exec(name, context, optional);
             }
+        },
+
+        extend: function(name, context) {
+            return TR.include(name, context);
+        },
+
+        block: function(context, name) {
+            var b = findBlock(name);
+            // XXX: what does PHP Twig do when block is missing?
+            return b ? b[name](context) : "";
+        },
+
+        parent: function(context, block) {
+            return withShadowBlock(block, function(){
+                return TR.block(context, block);
+            });
         },
 
         register: function(name, template) {
@@ -745,11 +762,15 @@ TWEEG_RUNTIME = function(){
                 if (ignore_missing) return null;
                 throw new Error("Could not find template " + template_name);
             }
-            var save = CURRENT;
+            var save_current = CURRENT;
+            var save_blocks = BLOCKS;
             try {
-                return func(CURRENT = tmpl);
+                BLOCKS = BLOCKS.concat(tmpl.$blocks);
+                CURRENT = tmpl;
+                return func(tmpl);
             } finally {
-                CURRENT = save;
+                CURRENT = save_current;
+                BLOCKS.pop();
             }
         },
 

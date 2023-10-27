@@ -1149,6 +1149,8 @@ TWEEG = function(RUNTIME){
         var blocks = {};
         var parent = null;
         var func_info = null;
+        var no_$index = 0;
+
         var main = compile_func(env, root);
         preamble.unshift(output_vars(env.own()));
         var output_code = preamble.join("") + "_self = $TR.t("
@@ -1376,7 +1378,12 @@ TWEEG = function(RUNTIME){
                 }
                 return "$FUNC[" + JSON.stringify(node.func.value) + "]" + args;
             }
-            return compile(env, node.func) + args;
+            try {
+                ++no_$index;
+                return compile(env, node.func) + args;
+            } finally {
+                --no_$index;
+            }
         }
 
         function compile_index(env, node) {
@@ -1384,8 +1391,10 @@ TWEEG = function(RUNTIME){
                 // local binding
                 return `${output_name(node.expr.value)}[${compile(env, node.prop)}]`;
             }
+            if (no_$index) {
+                return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
+            }
             return "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
-            //return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
         }
 
         function compile_filter(env, node) {

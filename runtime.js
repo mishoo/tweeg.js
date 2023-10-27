@@ -469,6 +469,32 @@ TWEEG_RUNTIME = function(){
         });
     }
 
+    function NamedArg(name, val) {
+        this.name = name;
+        this.value = val;
+    }
+
+    function readMacroArgs(func, names) {
+        return function() {
+            var data = Object.create(null);
+            var hasNamed = false;
+            var n = Math.min(names.length, arguments.length);
+            for (var i = 0; i < n; ++i) {
+                var key = names[i];
+                var val = arguments[i];
+                if (val instanceof NamedArg) {
+                    key = val.name;
+                    val = val.value;
+                    hasNamed = true;
+                } else if (hasNamed) {
+                    throw new Error("Unnamed argument present after named argument");
+                }
+                data[key] = val;
+            }
+            return func.call(null, data, [].slice.call(arguments, names.length));
+        };
+    }
+
     var globals = {};
 
     var TR = {
@@ -653,7 +679,8 @@ TWEEG_RUNTIME = function(){
                 if (keysym) {
                     $DATA[keysym] = i;
                 }
-                var val = f($DATA, loop, el, i);
+                $DATA["loop"] = loop;
+                var val = f($DATA);
                 if (val !== TR) {
                     // for `for`-s that define a condition, the
                     // compiled code returns TR by convention when the
@@ -674,9 +701,11 @@ TWEEG_RUNTIME = function(){
                 });
             }
             if (!result.length) {
-                // called without parameters will execute the `else`
-                // clause if present
-                result.push(f());
+                // called without `loop`, it will execute the `else`
+                // clause if present. It should not be there, but
+                // let's delete it anyway.
+                delete $DATA.loop;
+                result.push(f($DATA));
             }
             return TR.out(result);
         },
@@ -820,7 +849,13 @@ TWEEG_RUNTIME = function(){
 
         global: function(name) {
             return globals[name];
-        }
+        },
+
+        macro: readMacroArgs,
+
+        named_arg: function(name, value) {
+            return new NamedArg(name, value);
+        },
     };
 
     return TR;

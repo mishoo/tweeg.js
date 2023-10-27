@@ -29,8 +29,7 @@
 -----FILE
 {% set foo = 10 %}
 {% with { bar: 20 } only %}
-  {# XXX: uncomment this when it no longer errors out #}
-  {# foo #}.{{ bar }}
+  {{ foo }}.{{ bar }}
 {% endwith %}
 {{ foo }}.{{ bar }}
 -----OUTPUT

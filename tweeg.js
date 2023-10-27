@@ -237,25 +237,23 @@ TWEEG = function(RUNTIME){
             },
             compile: function(env, X, node) {
                 var data = X.compile(env, node.data);
-                env = env.extend(node.sym.value, "loop");
-                if (node.sym2) {
-                    env.def(node.sym2.value);
-                }
                 var cond = node.cond ? X.compile(env, node.cond) : null;
                 env = env.extend();
                 var body = X.compile(env, node.body);
-                var code = "$FOR($DATA,"
-                    + JSON.stringify(node.sym.value) + ","
-                    + (node.sym2 ? JSON.stringify(node.sym2.value) : "null") + ","
-                    + data + ","
-                    + "function($DATA,"
-                    + X.output_name("loop");
+                var valsym, keysym;
                 if (node.sym2) {
-                    code += "," + X.output_name(node.sym2.value);
+                    valsym = node.sym2;
+                    keysym = node.sym;
+                } else {
+                    valsym = node.sym;
                 }
-                code += "," + X.output_name(node.sym.value) + "){";
+                var code = "$FOR($DATA,"
+                    + JSON.stringify(valsym.value) + ","
+                    + (keysym ? JSON.stringify(keysym.value) : "null") + ","
+                    + data + ","
+                    + "function($DATA){";
                 code += X.output_vars(env.own());
-                code += "if(!" + X.output_name("loop") + "){";
+                code += "if(!$DATA.loop){";
                 if (node.else) {
                     code += "return " + X.compile(env, node.else);
                 } else {
@@ -309,9 +307,8 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 return "(" + node.defs.map(function(def){
                     var value = X.compile(env, def.value);
-                    env.set(def.name.value, def.value);
-                    return X.output_name(def.name.value)
-                        + "=$ENV_SET($DATA, " + JSON.stringify(X.output_name(def.name.value)) + "," + value + ")";
+                    var name = JSON.stringify(X.output_name(def.name.value));
+                    return `$ENV_SET($DATA,${name},${value})`;
                 }) + ",'')";
             }
         },
@@ -336,26 +333,13 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                var expr = node.expr ? X.compile(env, node.expr) : "";
-                var name = X.gensym();
-                var code = "function " + name + "(" + name + "){";
-                if (expr) {
-                    code += "with(" + name + ")";
-                }
-                code += "return(";
-                if (node.only) {
-                    code += X.outside_main(function(){
-                        return X.compile(X.root_env.extend(), node.body);
-                    });
-                } else {
-                    code += X.compile(env.extend(), node.body);
-                }
-                code += ")}";
-                if (node.only) {
-                    X.add_preamble(code);
-                    code = name;
-                }
-                return "(" + code + "(" + expr + "))";
+                var expr = node.expr ? X.compile(env, node.expr) : null;
+                var data = node.only
+                    ? expr
+                    : `Object.assign($ENV_EXT($DATA), ${expr})`;
+                env = node.only ? X.root_env.extend() : env.extend();
+                var body = X.compile(env.extend(), node.body);
+                return `(function($DATA){${X.output_vars(env.own())} return (${body})})((${data}))`;
             }
         },
 
@@ -384,31 +368,22 @@ TWEEG = function(RUNTIME){
             },
             compile: function(env, X, node) {
                 var args = node.vars.map(function(arg){ return arg.name.value });
-                var code = "function " + X.output_name(node.name.value)
-                    + "(" + args.map(X.output_name).join(",") + "){";
+                var code = `function ${X.output_name(node.name.value)}($DATA, varargs){`;
                 env = new Environment();
+                env.def("varargs");
+                env.extend();
                 node.vars.forEach(function(arg){
+                    let name = `$DATA.${X.output_name(arg.name.value)}`;
                     if (arg.defval) {
-                        code += "if (" + X.output_name(arg.name.value) + " === void 0)"
-                            + X.output_name(arg.name.value) + "=" + X.compile(env, arg.defval) + ";";
+                        code += `if (${name} === void 0) ${name} = ${X.compile(env, arg.defval)};`;
                     }
-                    env = env.extend(arg.name.value);
                 });
-                env = env.extend();
-                var used_vars;
-                var body = X.outside_main(function(params){
-                    // compiler will collect accessed names that are
-                    // not defined with {%set%} into this array.  we'll use
-                    // that to avoid declaring varargs if it's not necessary.
-                    used_vars = params;
+                var body = X.outside_main(function(){
                     return X.compile(env, node.body);
                 });
-                code += "var $DATA={};";
                 code += X.output_vars(env.own());
-                if (used_vars.indexOf("varargs") >= 0) {
-                    code += "var varargs = [].slice.call(arguments, " + args.length + ");";
-                }
                 code += "return " + body + "}";
+                code = `$MACRO(${code}, ${JSON.stringify(args)})`;
                 X.add_macro(node.name.value, code);
             }
         },
@@ -422,7 +397,13 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                env.def(node.name.value);
+                if (X.get_func_level() > 1) {
+                    env.def(node.name.value);
+                } else {
+                    // let's make names defined at toplevel available
+                    // in blocks/other macros as well.
+                    X.root_env.def(node.name.value);
+                }
                 if (node.template.type == NODE_SYMBOL && node.template.value == "_self") {
                     return "(" + X.output_name(node.name.value) + "=_self,'')";
                 } else {
@@ -1135,6 +1116,7 @@ TWEEG = function(RUNTIME){
 
     function compile(root, options, env) {
         if (!env) env = new Environment();
+        env.def("_self");
         var context = RUNTIME.merge(Object.create(NODES), {
             root_env         : env,
             compile          : compile,
@@ -1167,7 +1149,8 @@ TWEEG = function(RUNTIME){
         var parent = null;
         var func_info = null;
         var main = compile_func(env, root);
-        var output_code = preamble.join("") + "var _self = $TR.t("
+        preamble.unshift(output_vars(env.own()));
+        var output_code = preamble.join("") + "_self = $TR.t("
             + main
             + "," + make_object(blocks)
             + "," + make_object(macros)
@@ -1248,15 +1231,6 @@ TWEEG = function(RUNTIME){
             var code = "function($DATA){ var $_output, $_base; ";
             var own_vars = env.own().filter(name => !globals.includes(name));
             code += output_vars(own_vars);
-            var args = globals.reduce(function(a, name){
-                if (!/^(?:_self|_context)$/.test(name)) {
-                    a.push(output_name(name) + "=$DATA[" + JSON.stringify(name) + "]");
-                }
-                return a;
-            }, []);
-            if (args.length) {
-                code += "var " + args.join(",") + ";";
-            }
             code += "$DATA=$ENV_EXT($DATA);";
             var is_child = node === root && parent;
             code += "$_output=" + body + ";";
@@ -1487,14 +1461,17 @@ TWEEG = function(RUNTIME){
 
         function compile_sym(env, node) {
             var name = node.value;
-            var not_defined = !env.lookup(name);
-            if (not_defined && globals.indexOf(name) < 0) {
-                globals.push(name);
+            if (!env.lookup(name)) {
+                if (globals.indexOf(name) < 0) {
+                    globals.push(name);
+                }
+                if (RUNTIME.is_global(name)) {
+                    return "$GLOBAL(" + JSON.stringify(name) + ")";
+                }
+                return `$DATA.${output_name(name)}`;
+            } else {
+                return output_name(name);
             }
-            if (not_defined && RUNTIME.is_global(name)) {
-                return "$GLOBAL(" + JSON.stringify(name) + ")";
-            }
-            return output_name(name);
         }
 
         function output_name(name) {
@@ -1965,5 +1942,7 @@ var $BOOL = $TR.bool\
 ,$EXTEND = $TR.extend\
 ,$PARENT = $TR.parent\
 ,$BLOCK = $TR.block\
+,$MACRO = $TR.macro\
+,$NAMED_ARG = $TR.named_arg\
 ;" + code + "}";
 };

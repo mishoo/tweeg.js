@@ -60,11 +60,16 @@ function runTest(filename) {
             if (!main) main = filename;
             let ast = tweeg.parse(data);
             let res = tweeg.compile(ast);
-            code += `$REGISTER(${JSON.stringify(filename)}, ${res.code});`;
+            let part = `$REGISTER(${JSON.stringify(filename)}, ${res.code});`;
+            code += part;
 
-            // let tmp = UglifyJS.parse(code);
-            // let beauty = tmp.print_to_string({ beautify: true });
-            // console.log(beauty);
+            // try {
+            //     let tmp = UglifyJS.parse(part);
+            //     let beauty = tmp.print_to_string({ beautify: true });
+            //     console.log("\n" + beauty);
+            // } catch(ex) {
+            //     console.error("!!!", part);
+            // }
         }
         else if (/^input/i.test(head[1])) {
             if (head[2]) {

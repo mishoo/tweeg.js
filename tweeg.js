@@ -386,7 +386,7 @@ TWEEG = function(RUNTIME){
                 var args = node.vars.map(function(arg){ return arg.name.value });
                 var code = "function " + X.output_name(node.name.value)
                     + "(" + args.map(X.output_name).join(",") + "){";
-                env = X.root_env.extend();
+                env = new Environment();
                 node.vars.forEach(function(arg){
                     if (arg.defval) {
                         code += "if (" + X.output_name(arg.name.value) + " === void 0)"
@@ -403,6 +403,7 @@ TWEEG = function(RUNTIME){
                     used_vars = params;
                     return X.compile(env, node.body);
                 });
+                code += "var $DATA={};";
                 code += X.output_vars(env.own());
                 if (used_vars.indexOf("varargs") >= 0) {
                     code += "var varargs = [].slice.call(arguments, " + args.length + ");";

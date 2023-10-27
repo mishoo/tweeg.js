@@ -308,6 +308,7 @@ TWEEG = function(RUNTIME){
                 return "(" + node.defs.map(function(def){
                     var value = X.compile(env, def.value);
                     var name = JSON.stringify(X.output_name(def.name.value));
+                    env["%altered"] = true;
                     return `$ENV_SET($DATA,${name},${value})`;
                 }) + ",'')";
             }
@@ -1233,7 +1234,9 @@ TWEEG = function(RUNTIME){
             var code = "function($DATA){ var $_output, $_base; ";
             var own_vars = env.own().filter(name => !globals.includes(name));
             code += output_vars(own_vars);
-            code += "$DATA=$ENV_EXT($DATA);";
+            if (env["%altered"]) {
+                code += "$DATA=$ENV_EXT($DATA);";
+            }
             var is_child = node === root && parent;
             code += "$_output=" + body + ";";
             code += "return " + (is_child ? "$_base" : "$_output") + "}";
@@ -1377,6 +1380,10 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_index(env, node) {
+            if (node.expr.type == NODE_SYMBOL && env.lookup(node.expr.value)) {
+                // local binding
+                return `${output_name(node.expr.value)}[${compile(env, node.prop)}]`;
+            }
             return "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
             //return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
         }

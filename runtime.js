@@ -778,6 +778,9 @@ TWEEG_RUNTIME = function(){
             if (tmpl instanceof Template) {
                 return tmpl;
             }
+            if (REGISTRY[tmpl]) {
+                return REGISTRY[tmpl];
+            }
             if (CURRENT) {
                 tmpl = TR.resolve(CURRENT.$name, tmpl);
             }

@@ -13,6 +13,7 @@ function compile(files, options) {
 
     var paths = option("paths", {});
     var base = option("base", null);
+    var strip_base = option("strip_base", null);
     var beautify = option("beautify", false);
     var extend = option("extend", null);
     var runtime = option("runtime", TWEEG_RUNTIME());
@@ -50,7 +51,9 @@ function compile(files, options) {
     function compileFile(template_name, source) {
         template_name = template_name.replace(/\\/g, "/").replace(/\/\/+/g, "/");
         var fullname = replacePaths(template_name);
-        if (source) {
+        if (!/^\.?\//.test(fullname) && base) {
+            fullname = path.resolve(path.join(base, fullname));
+        } else if (source) {
             fullname = path.resolve(path.dirname(source), fullname);
         } else {
             fullname = path.resolve(fullname);
@@ -63,8 +66,8 @@ function compile(files, options) {
         var tmpl = fs.readFileSync(fullname, "utf8");
         var ast, result;
 
-        if (base && !source) {
-            template_name = path.relative(base, template_name);
+        if (strip_base && !source) {
+            template_name = path.relative(strip_base, template_name);
         }
 
         try {

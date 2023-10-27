@@ -78,3 +78,31 @@ join:
 join:
 join: 1
 join: 1/2/trei
+
+
+
+-----FILE: import-in-macro
+{% macro display_items(items) %}
+    {% import _self as me %}
+    <ul>
+        {% for item in items %}
+            {{ me.display_item(item) }}
+        {% endfor %}
+    </ul>
+{% endmacro %}
+
+{% macro display_item(item) %}
+    <li>{{ item }}</li>
+{% endmacro %}
+
+{{ _self.display_items(items) }}
+-----INPUT: import-in-macro
+{{ items: [
+    "Foo", "Bar", "Baz"
+] }}
+-----OUTPUT: import-in-macro
+<ul>
+<li>Foo</li>
+<li>Bar</li>
+<li>Baz</li>
+</ul>

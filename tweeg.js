@@ -371,7 +371,7 @@ TWEEG = function(RUNTIME){
                 var code = `function ${X.output_name(node.name.value)}($DATA, varargs){`;
                 env = new Environment();
                 env.def("varargs");
-                env.extend();
+                env = env.extend();
                 node.vars.forEach(function(arg){
                     let name = `$DATA.${X.output_name(arg.name.value)}`;
                     if (arg.defval) {
@@ -1213,10 +1213,12 @@ TWEEG = function(RUNTIME){
         function outside_main(f) {
             var save = globals;
             globals = [];
+            ++level;
             try {
                 return f(globals);
             } finally {
                 globals = save;
+                --level;
             }
         }
 

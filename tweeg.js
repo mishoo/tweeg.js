@@ -336,7 +336,7 @@ TWEEG = function(RUNTIME){
                 var expr = node.expr ? X.compile(env, node.expr) : null;
                 var data = node.only
                     ? expr
-                    : `Object.assign($ENV_EXT($DATA), ${expr})`;
+                    : `$MERGE($ENV_EXT($DATA), ${expr})`;
                 env = node.only ? X.root_env.extend() : env.extend();
                 var body = X.compile(env.extend(), node.body);
                 return `(function($DATA){${X.output_vars(env.own())} return (${body})})((${data}))`;
@@ -493,7 +493,7 @@ TWEEG = function(RUNTIME){
                     if (node.only) {
                         args.push(X.compile(env, node.vars));
                     } else {
-                        args.push("$MERGE({},$DATA," + X.compile(env, node.vars) + ")");
+                        args.push("$MERGE($ENV_EXT($DATA)," + X.compile(env, node.vars) + ")");
                     }
                 } else if (!node.only) {
                     args.push("$DATA");

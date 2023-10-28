@@ -336,8 +336,8 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 var expr = node.expr ? X.compile(env, node.expr) : null;
                 var data = node.only
-                    ? expr
-                    : `$MERGE($ENV_EXT($DATA), ${expr})`;
+                    ? `$ENV_EXT(${expr},true)`
+                    : `$ENV_EXT($MERGE($ENV_EXT($DATA), ${expr}),true)`;
                 env = node.only ? X.root_env.extend() : env.extend();
                 var body = X.compile(env.extend(), node.body);
                 return `(function($DATA){${X.output_vars(env.own())} return (${body})})((${data}))`;

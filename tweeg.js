@@ -494,10 +494,10 @@ TWEEG = function(RUNTIME){
                     if (node.only) {
                         args.push(X.compile(env, node.vars));
                     } else {
-                        args.push("$MERGE($ENV_EXT($DATA,true)," + X.compile(env, node.vars) + ")");
+                        args.push("$MERGE($ENV_EXT($DATA)," + X.compile(env, node.vars) + ")");
                     }
                 } else if (!node.only) {
-                    args.push("$ENV_EXT($DATA,true)");
+                    args.push("$DATA");
                 }
                 if (node.optional) {
                     args.push("true");

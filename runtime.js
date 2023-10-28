@@ -745,6 +745,7 @@ TWEEG_RUNTIME = function(){
         merge: merge,
 
         include: function(name, context, optional) {
+            context = TR.env_ext(context, true);
             if (Array.isArray(name)) {
                 // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {
@@ -768,7 +769,7 @@ TWEEG_RUNTIME = function(){
         block: function(context, name) {
             var b = findBlock(name);
             // XXX: what does PHP Twig do when block is missing?
-            return b ? b[name](context) : "";
+            return b ? b[name](TR.env_ext(context, true)) : "";
         },
 
         parent: function(context, block) {

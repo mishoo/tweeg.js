@@ -106,6 +106,9 @@ TWEEG_RUNTIME = function(){
         if (thing instanceof RawString) {
             return thing.value;
         }
+        if (thing instanceof Function || typeof thing == "function") {
+            return string(thing());
+        }
         if (thing != null && thing !== false) {
             if (typeof thing == "object") {
                 return "Array";

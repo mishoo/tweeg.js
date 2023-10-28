@@ -502,14 +502,19 @@ TWEEG_RUNTIME = function(){
             return new Template(main, blocks, macros);
         },
 
-        env_ext: function(env) {
-            return Object.create(env);
+        env_ext: function(env, locked) {
+            if (env["%break"]) return env;
+            return Object.create(env, locked ? {
+                "%break": {
+                    value: true
+                }
+            } : void 0);
         },
 
         env_set: function(env, name, val) {
             var dest = env;
             if (name in env) {
-                while (dest && !HOP.call(dest, name))
+                while (dest && !dest["%break"] && !HOP.call(dest, name))
                     dest = Object.getPrototypeOf(dest);
             }
             return (dest || env)[name] = val;

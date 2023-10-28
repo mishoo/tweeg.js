@@ -506,18 +506,15 @@ TWEEG_RUNTIME = function(){
         },
 
         env_ext: function(env, locked) {
-            if (env["%break"]) return env;
-            return Object.create(env, locked ? {
-                "%break": {
-                    value: true
-                }
-            } : void 0);
+            let ext = Object.create(env);
+            if (locked) ext["%locked"] = true;
+            return ext;
         },
 
         env_set: function(env, name, val) {
             var dest = env;
             if (name in env) {
-                while (dest && !dest["%break"] && !HOP.call(dest, name))
+                while (dest && !HOP.call(dest, "%locked") && !HOP.call(dest, name))
                     dest = Object.getPrototypeOf(dest);
             }
             return (dest || env)[name] = val;
@@ -745,7 +742,6 @@ TWEEG_RUNTIME = function(){
         merge: merge,
 
         include: function(name, context, optional) {
-            context = TR.env_ext(context, true);
             if (Array.isArray(name)) {
                 // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {

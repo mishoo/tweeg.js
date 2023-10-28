@@ -1237,7 +1237,7 @@ TWEEG = function(RUNTIME){
             var own_vars = env.own().filter(name => !globals.includes(name));
             code += output_vars(own_vars);
             if (env["%altered"]) {
-                code += "$DATA=$ENV_EXT($DATA);";
+                code += "$DATA=$ENV_EXT($DATA,true);";
             }
             var is_child = node === root && parent;
             code += "$_output=" + body + ";";

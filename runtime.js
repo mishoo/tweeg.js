@@ -537,6 +537,7 @@ TWEEG_RUNTIME = function(){
 
         filter: {
             json_encode: function(val, indent) {
+                if (val === void 0) val = null;
                 return JSON.stringify(val, null, indent);
             },
             e: function(val, strategy) {

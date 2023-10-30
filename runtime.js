@@ -844,8 +844,13 @@ TWEEG_RUNTIME = function(){
             return src.join("/");
         },
 
-        index: function(obj, prop) {
-            return obj == null ? null : obj[prop];
+        index: function(obj) {
+            var val = obj;
+            for (var i = 1; i < arguments.length; ++i) {
+                if (val == null) return null;
+                val = val[arguments[i]];
+            }
+            return val;
         },
 
         add_global: function(name, value) {

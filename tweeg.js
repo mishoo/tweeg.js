@@ -1394,7 +1394,15 @@ TWEEG = function(RUNTIME){
             if (no_$index) {
                 return compile(env, node.expr) + "[" + compile(env, node.prop) + "]";
             }
-            return "$INDEX(" + compile(env, node.expr) + "," + compile(env, node.prop) + ")";
+            return "$INDEX(" + unpack(node) + ")";
+
+            function unpack(node) {
+                if (node.expr.type == NODE_INDEX) {
+                    return unpack(node.expr) + "," + compile(env, node.prop);
+                } else {
+                    return compile(env, node.expr) + "," + compile(env, node.prop);
+                }
+            }
         }
 
         function compile_filter(env, node) {

@@ -370,7 +370,7 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 var args = node.vars.map(function(arg){ return arg.name.value });
                 var code = `function ${X.output_name(node.name.value)}($DATA, varargs){`;
-                env = new Environment();
+                env = X.root_env.extend();
                 env.def("varargs");
                 env = env.extend();
                 node.vars.forEach(function(arg){

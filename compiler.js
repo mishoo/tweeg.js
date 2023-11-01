@@ -21,6 +21,7 @@ function compile(files, options) {
     var wrap_template = option("wrap_template", tmpl => tmpl);
     var nodeps = option("nodeps", false);
     var warnings = option("warnings", false);
+    var hook = option("hook", null);
 
     var code = "";
 
@@ -87,7 +88,13 @@ function compile(files, options) {
             }
         });
 
-        code += wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name);
+        let newcode = wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name);
+
+        if (hook) {
+            hook(template_name, fullname, newcode);
+        }
+
+        code += newcode;
     }
 
     function replacePaths(filename) {

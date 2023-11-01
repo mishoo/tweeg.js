@@ -588,6 +588,9 @@ TWEEG_RUNTIME = function(){
                     return obj[field];
                 });
             },
+            nl2br: function(str) {
+                return safeString(string(str).replace(/(?:\r\n|\r|\n)/g, "<br>"));
+            },
             keys: keys,
             batch: batch,
             first: first,

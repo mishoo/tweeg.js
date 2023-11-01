@@ -142,6 +142,9 @@ TWEEG_RUNTIME = function(){
     }
 
     function empty(val) {
+        if (val instanceof Function || typeof val == "function") {
+            return empty(val());
+        }
         if (val === "" || val == null || val === false) {
             return true;
         }

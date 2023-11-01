@@ -567,7 +567,7 @@ TWEEG_RUNTIME = function(){
             merge: function(a, b) {
                 if (Array.isArray(a) && Array.isArray(b))
                     return a.concat(b);
-                return merge(a, b);
+                return merge({}, a, b);
             },
             replace: function(str, parts) {
                 str = string(str);

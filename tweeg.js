@@ -1754,13 +1754,38 @@ TWEEG = function(RUNTIME){
             input.skip(RX_WHITESPACE);
         }
 
+        function hex_bytes(n) {
+            var num = 0;
+            for (; n > 0; --n) {
+                var digit = parseInt(input.next(), 16);
+                if (isNaN(digit))
+                    croak("Invalid hex-character pattern in string");
+                num = (num << 4) | digit;
+            }
+            return num;
+        }
+
+        function convert_escaped(ch) {
+            switch (ch.charCodeAt(0)) {
+              case 110 : return "\n";
+              case 114 : return "\r";
+              case 116 : return "\t";
+              case 98  : return "\b";
+              case 118 : return "\u000b"; // \v
+              case 102 : return "\f";
+              case 120 : return String.fromCharCode(hex_bytes(2)); // \x
+              case 117 : return String.fromCharCode(hex_bytes(4)); // \u
+            }
+            return ch;
+        }
+
         function read_escaped(end) {
             var escaped = false, str = "";
             input.next();
             while (!input.eof()) {
                 var ch = input.next();
                 if (escaped) {
-                    str += ch;
+                    str += convert_escaped(ch);
                     escaped = false;
                 } else if (ch == "\\") {
                     escaped = true;
@@ -1838,7 +1863,7 @@ TWEEG = function(RUNTIME){
             var escaped = false, str = "";
             while (!input.eof()) {
                 if (escaped) {
-                    str += input.next();
+                    str += convert_escaped(input.next());
                     escaped = false;
                 } else if (input.skip(/^\\/)) {
                     escaped = true;

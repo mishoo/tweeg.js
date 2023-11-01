@@ -74,6 +74,7 @@ TWEEG = function(RUNTIME){
     var NODE_VAR          = "var";
     var NODE_SEQ          = "seq";
     var NODE_LAMBDA       = "lambda";
+    var NODE_NAMED_ARG    = "named_arg";
 
     /* -----[ Lexer modes ]----- */
 
@@ -811,11 +812,25 @@ TWEEG = function(RUNTIME){
                 croak("Expected argument name at " + dump(node));
         }
 
+        function parse_funarg() {
+            return input.ahead(2, function(tokens, consume){
+                if (is(tokens[0], NODE_SYMBOL) && is(tokens[1], NODE_OPERATOR, "=")) {
+                    return {
+                        type: NODE_NAMED_ARG,
+                        name: tokens[0],
+                        value: (consume(2), parse_expression())
+                    };
+                } else {
+                    return parse_expression();
+                }
+            });
+        }
+
         function parse_call(func) {
             return {
                 type: NODE_CALL,
                 func: func,
-                args: delimited("(", ")", ",", parse_expression)
+                args: delimited("(", ")", ",", parse_funarg)
             };
         }
 
@@ -1284,6 +1299,7 @@ TWEEG = function(RUNTIME){
               case NODE_SYMBOL      : return compile_sym(env, node);
               case NODE_STAT        : return compile_stat(env, node);
               case NODE_CALL        : return compile_call(env, node);
+              case NODE_NAMED_ARG   : return compile_named_arg(env, node);
               case NODE_ESCAPE      : return compile_escape(env, node);
               case NODE_SLICE       : return compile_slice(env, node);
               case NODE_VAR         : return compile_var(env, node);
@@ -1366,24 +1382,32 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_call(env, node) {
-            var args = "(" + node.args.map(function(item){
+            var args = node.args.map(function(item){
                 return compile(env, item);
-            }).join(",") + ")";
+            });
             if (node.func.type == NODE_SYMBOL) {
                 if (env.lookup(node.func.value)) {
-                    return compile(env, node.func) + args;
+                    // macro
+                    return compile(env, node.func) + `(${args.join(",")})`;
                 }
                 if (node.func.value == "parent" && func_info && func_info.block) {
                     return "$PARENT($DATA," + JSON.stringify(func_info.name) + ")";
                 }
-                return "$FUNC[" + JSON.stringify(node.func.value) + "]" + args;
+                if (node.func.value == "include") {
+                    args.unshift("$DATA"); // include needs access to the environment
+                }
+                return `$FUNC[${JSON.stringify(node.func.value)}](${args.join(",")})`;
             }
             try {
                 ++no_$index;
-                return compile(env, node.func) + args;
+                return compile(env, node.func) + `(${args.join(",")})`;
             } finally {
                 --no_$index;
             }
+        }
+
+        function compile_named_arg(env, node) {
+            return `$NAMED_ARG(${JSON.stringify(node.name.value)},${compile(env, node.value)})`;
         }
 
         function compile_index(env, node) {

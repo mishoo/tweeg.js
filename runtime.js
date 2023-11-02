@@ -537,9 +537,9 @@ TWEEG_RUNTIME = function(){
                 if (x.with_context == null) x.with_context = true;
                 if (x.ignore_missing == null) x.ignore_missing = false;
                 let ctx = x.with_context ? TR.env_ext(x.$DATA, true) : Object.create(null);
-                if (x.args) Object.assign(ctx, x.args);
-                return safeString(TR.include(x.name, ctx, x.ignore_missing));
-            }, [ '$DATA', 'name', 'args', 'with_context', 'ignore_missing' ]),
+                if (x.variables) Object.assign(ctx, x.variables);
+                return safeString(TR.include(x.template, ctx, x.ignore_missing));
+            }, [ '$DATA', 'template', 'variables', 'with_context', 'ignore_missing' ]),
         },
 
         filter: {

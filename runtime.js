@@ -592,7 +592,12 @@ TWEEG_RUNTIME = function(){
                 });
             },
             nl2br: function(str) {
-                return safeString(string(str).replace(/(?:\r\n|\r|\n)/g, "<br>"));
+                return safeString(html_escape(string(str)).replace(/(?:\r\n|\r|\n)/g, "<br>"));
+            },
+            title: function(str) {
+                return string(str).replace(/(?:^|\s|["'([{])+\S/g, function (m) {
+                    return m.toUpperCase();
+                });
             },
             keys: keys,
             batch: batch,

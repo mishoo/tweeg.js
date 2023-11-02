@@ -532,7 +532,14 @@ TWEEG_RUNTIME = function(){
             max: max,
             min: min,
             attribute: attribute,
-            random: random
+            random: random,
+            include: readMacroArgs(function(x) {
+                if (x.with_context == null) x.with_context = true;
+                if (x.ignore_missing == null) x.ignore_missing = false;
+                let ctx = x.with_context ? TR.env_ext(x.$DATA, true) : Object.create(null);
+                if (x.args) Object.assign(ctx, x.args);
+                return safeString(TR.include(x.name, ctx, x.ignore_missing));
+            }, [ '$DATA', 'name', 'args', 'with_context', 'ignore_missing' ]),
         },
 
         filter: {
@@ -592,7 +599,7 @@ TWEEG_RUNTIME = function(){
                 });
             },
             nl2br: function(str) {
-                return safeString(html_escape(string(str)).replace(/(?:\r\n|\r|\n)/g, "<br>"));
+                return safeString(html_escape(string(str)).value.replace(/(?:\r\n|\r|\n)/g, "<br>"));
             },
             title: function(str) {
                 return string(str).replace(/(?:^|\s|["'([{])+\S/g, function (m) {

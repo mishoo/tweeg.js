@@ -31,3 +31,19 @@ foo = {{ foo }}
 -----OUTPUT
 foo = foo
 foo = foo
+
+
+
+-----FILE: index
+{% set test = "test" %}
+{{ include('foo') }}
+{{ include('foo', with_context = false) }}
+{{ include('foo', { bar: "bar" }) }}
+{{ include('foo', { bar: "bar" }, with_context = false) }}
+-----FILE: foo
+test={{ test }}, bar={{ bar }}
+-----OUTPUT
+test=test, bar=
+test=, bar=
+test=test, bar=bar
+test=, bar=bar

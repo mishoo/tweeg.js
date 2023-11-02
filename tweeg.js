@@ -1394,6 +1394,7 @@ TWEEG = function(RUNTIME){
                     return "$PARENT($DATA," + JSON.stringify(func_info.name) + ")";
                 }
                 if (node.func.value == "include") {
+                    add_dependency(node.args[0]);
                     args.unshift("$DATA"); // include needs access to the environment
                 }
                 return `$FUNC[${JSON.stringify(node.func.value)}](${args.join(",")})`;

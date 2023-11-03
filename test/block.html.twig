@@ -113,3 +113,37 @@ THIRD IMPL
 {% set foo = "this is weird" %}
 -----OUTPUT: child.twig
 this is weird
+
+
+
+-----FILE: base.twig
+BEFORE
+<div class="left">{% block left %}{{ foo }}{% endblock %}</div>
+<div class="right">
+    {% block right %}
+        parent.
+    {% endblock %}
+</div>
+AFTER
+
+-----FILE: main.twig
+BEFORE EMBED
+{% embed "base.twig" %}
+    {% set foo = "weirdness" %}
+    {% block right %}
+        The right side
+        {{ parent() }}
+    {% endblock %}
+{% endembed %}
+AFTER EMBED
+
+-----OUTPUT: main.twig
+BEFORE EMBED
+BEFORE
+<div class="left">weirdness</div>
+<div class="right">
+The right side
+parent.
+</div>
+AFTER
+AFTER EMBED

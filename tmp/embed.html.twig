@@ -1,0 +1,10 @@
+BEFORE EMBED
+
+{% embed "mini-layout.html.twig" %}
+    {% set foo = "weirdness" %}
+    {% block right %}
+        The right side
+    {% endblock %}
+{% endembed %}
+
+AFTER EMBED

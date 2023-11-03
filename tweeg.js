@@ -568,8 +568,30 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                // WIP
-                throw new Error("Not yet implemented");
+                X.add_dependency(node.template);
+                // note we're not going through X.compile this time,
+                // but the toplevel compile. This creates an entirely
+                // new compilation context, although by passing the
+                // same env/$DATA to the new template, it will have
+                // access to the current context.
+                let sym = X.gensym();
+                let body = compile({
+                    type: NODE_PROG,
+                    body: [ node.body, {
+                        type     : NODE_STAT,
+                        tag      : "include",
+                        template : node.template,
+                        vars     : node.vars,
+                        only     : node.only,
+                        optional : node.optional,
+                    } ]
+                }, {
+                    parent: node.template,
+                    self: sym
+                }, env.extend());
+                X.root_env.def(sym);
+                X.add_preamble(`${sym} = (${body.code})();`);
+                return `$TR.exec(${sym}, $DATA)`;
             }
         }
     };
@@ -1146,7 +1168,6 @@ TWEEG = function(RUNTIME){
 
     function compile(root, options, env) {
         if (!env) env = new Environment();
-        env.def("_self");
         var context = RUNTIME.merge(Object.create(NODES), {
             root_env         : env,
             compile          : compile,
@@ -1176,20 +1197,23 @@ TWEEG = function(RUNTIME){
         var preamble = [];
         var macros = {};
         var blocks = {};
-        var parent = null;
+        var parent = option("parent", null);
         var return_value = null;
         var func_info = null;
         var no_$index = 0;
+        var self = option("self", "_self");
+
+        env.def(self);
 
         var main = compile_func(env, root, { main: true });
         preamble.unshift(output_vars(env.own()));
-        var output_code = preamble.join("") + "_self = $TR.t("
+        var output_code = preamble.join("") + self + "=$TR.t("
             + main
             + "," + make_object(blocks)
             + "," + make_object(macros)
             + ");";
         return {
-            code: "function(){" + output_code + " return _self; }",
+            code: `function(){${output_code} return ${self}; }`,
             dependencies: dependencies
         };
 

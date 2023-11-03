@@ -124,7 +124,7 @@ TWEEG = function(RUNTIME){
 
     /* -----[ core tag parsers ]----- */
 
-    var APPLY_FILTER_TAG = function(rx_endtag) {
+    function APPLY_FILTER_TAG(rx_endtag) {
         return {
             parse: function(X) {
                 function parse_filter() {
@@ -158,7 +158,26 @@ TWEEG = function(RUNTIME){
                 return X.compile(env, expr);
             }
         };
-    };
+    }
+
+    function PARSE_INCLUDE_ARGS(X) {
+        var node = { template: X.parse_expression() };
+        if (X.looking_at(NODE_SYMBOL, "ignore")) {
+            X.next();
+            X.skip(NODE_SYMBOL, "missing");
+            node.optional = true;
+        }
+        if (X.looking_at(NODE_SYMBOL, "with")) {
+            X.next();
+            node.vars = X.parse_expression();
+        }
+        if (X.looking_at(NODE_SYMBOL, "only")) {
+            X.next();
+            node.only = true;
+        }
+        X.skip(NODE_STAT_END);
+        return node;
+    }
 
     var CORE_TAGS = {
         "autoescape": {
@@ -468,24 +487,7 @@ TWEEG = function(RUNTIME){
         },
 
         "include": {
-            parse: function(X) {
-                var node = { template: X.parse_expression() };
-                if (X.looking_at(NODE_SYMBOL, "ignore")) {
-                    X.next();
-                    X.skip(NODE_SYMBOL, "missing");
-                    node.optional = true;
-                }
-                if (X.looking_at(NODE_SYMBOL, "with")) {
-                    X.next();
-                    node.vars = X.parse_expression();
-                }
-                if (X.looking_at(NODE_SYMBOL, "only")) {
-                    X.next();
-                    node.only = true;
-                }
-                X.skip(NODE_STAT_END);
-                return node;
-            },
+            parse: PARSE_INCLUDE_ARGS,
             compile: function(env, X, node) {
                 X.add_dependency(node.template);
                 var args = [
@@ -554,8 +556,20 @@ TWEEG = function(RUNTIME){
             compile: function(env, X, node) {
                 X.add_dependency(node.base);
                 let parent = X.compile(env, node.base);
-                X.set_parent(parent);
-                return `($_base = $EXTEND(${parent}, $DATA), "")`;
+                X.set_parent(parent, `$EXTEND(${parent}, $DATA)`);
+                return '""';
+            }
+        },
+
+        "embed": {
+            parse: function(X) {
+                let node = PARSE_INCLUDE_ARGS(X);
+                node.body = X.parse_until(X.end_body_predicate(/^endembed$/, true));
+                return node;
+            },
+            compile: function(env, X, node) {
+                // WIP
+                throw new Error("Not yet implemented");
             }
         }
     };
@@ -1163,10 +1177,11 @@ TWEEG = function(RUNTIME){
         var macros = {};
         var blocks = {};
         var parent = null;
+        var return_value = null;
         var func_info = null;
         var no_$index = 0;
 
-        var main = compile_func(env, root);
+        var main = compile_func(env, root, { main: true });
         preamble.unshift(output_vars(env.own()));
         var output_code = preamble.join("") + "_self = $TR.t("
             + main
@@ -1216,8 +1231,9 @@ TWEEG = function(RUNTIME){
             }
         }
 
-        function set_parent(p) {
+        function set_parent(p, ret) {
             parent = p;
+            return_value = ret;
         }
 
         function get_parent() {
@@ -1248,15 +1264,14 @@ TWEEG = function(RUNTIME){
             ++level;
             env = env.extend();
             var body = compile(env, node);
-            var code = "function($DATA){ var $_output, $_base; ";
+            var code = "function($DATA){ var $_output; ";
             var own_vars = env.own().filter(name => !globals.includes(name));
             code += output_vars(own_vars);
             if (env["%altered"]) {
                 code += "$DATA=$ENV_EXT($DATA,true);";
             }
-            var is_child = node === root && parent;
             code += "$_output=" + body + ";";
-            code += "return " + (is_child ? "$_base" : "$_output") + "}";
+            code += "return " + (info.main && return_value || "$_output") + "}";
             --level;
             globals = save_globals;
             func_info = save_func_info;

@@ -101,3 +101,15 @@ This is first base.
 SECOND IMPL
 FIRST IMPL
 THIRD IMPL
+
+
+
+-----FILE: base.twig
+{% block test_scope %}
+    {{ foo }}
+{% endblock %}
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% set foo = "this is weird" %}
+-----OUTPUT: child.twig
+this is weird

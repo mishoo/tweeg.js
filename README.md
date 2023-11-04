@@ -129,11 +129,11 @@ The following statement tags are implemented, with the same semantics as in Twig
 
 - [`set`](http://twig.sensiolabs.org/doc/3.x/tags/set.html)
 
-- [`macro`](http://twig.sensiolabs.org/doc/3.x/tags/macro.html), along with `from` and `import`.
+- [`macro`](http://twig.sensiolabs.org/doc/3.x/tags/macro.html), along with [`from`](https://twig.symfony.com/doc/3.x/tags/from.html) and [`import`](https://twig.symfony.com/doc/3.x/tags/import.html).
 
 - [`spaceless`](http://twig.sensiolabs.org/doc/3.x/tags/spaceless.html) (poorly implemented, we could do better here)
 
-- [`include`](http://twig.sensiolabs.org/doc/3.x/tags/include.html)
+- [`include`](http://twig.sensiolabs.org/doc/3.x/tags/include.html), also [as function](https://twig.symfony.com/doc/3.x/functions/include.html)
 
 - [`with`](http://twig.sensiolabs.org/doc/3.x/tags/with.html)
 
@@ -141,9 +141,9 @@ The following statement tags are implemented, with the same semantics as in Twig
 
 - [`verbatim`](http://twig.sensiolabs.org/doc/3.x/tags/verbatim.html)
 
-- [block](http://twig.sensiolabs.org/doc/3.x/tags/block.html), [extends](http://twig.sensiolabs.org/doc/3.x/tags/extends.html), [use](http://twig.sensiolabs.org/doc/3.x/tags/use.html), [embed](http://twig.sensiolabs.org/doc/3.x/tags/embed.html),
-[block function](https://twig.symfony.com/doc/3.x/functions/block.html),
-[parent function](https://twig.symfony.com/doc/3.x/functions/parent.html)
+- [`block`](http://twig.sensiolabs.org/doc/3.x/tags/block.html), [`extends`](http://twig.sensiolabs.org/doc/3.x/tags/extends.html), [`use`](http://twig.sensiolabs.org/doc/3.x/tags/use.html), [`embed`](http://twig.sensiolabs.org/doc/3.x/tags/embed.html),
+[`block` function](https://twig.symfony.com/doc/3.x/functions/block.html),
+[`parent` function](https://twig.symfony.com/doc/3.x/functions/parent.html)
 
 ## Known issues / differences from Twig
 

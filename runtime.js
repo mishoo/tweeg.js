@@ -826,7 +826,7 @@ TWEEG_RUNTIME = function(){
                 return func(tmpl);
             } finally {
                 CURRENT = save_current;
-                BLOCKS.pop();
+                BLOCKS = save_blocks;
             }
         },
 
@@ -834,6 +834,23 @@ TWEEG_RUNTIME = function(){
             return TR.with(template_name, function(tmpl){
                 return "" + tmpl.$main(args || {});
             }, ignore_missing);
+        },
+
+        use: function(template_name, renames) {
+            var tmpl = TR.get(template_name);
+            if (!tmpl) {
+                throw new Error("Could not find template " + template_name);
+            }
+            let blocks = tmpl.$blocks;
+            if (renames) {
+                blocks = Object.assign(Object.create(null), blocks);
+                Object.keys(renames).forEach(function(internal){
+                    var external = renames[internal];
+                    blocks[external] = blocks[internal];
+                    delete blocks[internal];
+                });
+            }
+            BLOCKS.push(blocks);
         },
 
         add_path: function(name, value) {

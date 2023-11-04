@@ -531,7 +531,7 @@ TWEEG = function(RUNTIME){
                 return node;
             },
             compile: function(env, X, node) {
-                var name = "%" + node.name.value;
+                var name = node.name.value;
                 var code = X.compile_func(X.root_env, node.body, {
                     block: true,
                     name: name
@@ -592,6 +592,33 @@ TWEEG = function(RUNTIME){
                 X.root_env.def(sym);
                 X.add_preamble(`${sym} = (${body.code})();`);
                 return `$TR.exec(${sym}, $DATA)`;
+            }
+        },
+
+        "use": {
+            parse: function(X) {
+                let node = {
+                    template: X.parse_expression(),
+                    renames: null
+                };
+                if (X.looking_at(NODE_SYMBOL, "with")) {
+                    X.next();
+                    node.renames = Object.create(null);
+                    while (true) {
+                        let internal = X.skip(NODE_SYMBOL);
+                        X.skip(NODE_SYMBOL, "as");
+                        let external = X.skip(NODE_SYMBOL);
+                        node.renames[internal.value] = external.value;
+                        if (!X.looking_at(NODE_PUNC, ",")) break;
+                        X.next();
+                    }
+                }
+                X.skip(NODE_STAT_END);
+                return node;
+            },
+            compile: function(env, X, node) {
+                X.add_dependency(node.template);
+                return `$TR.use(${X.compile(env, node.template)}, ${JSON.stringify(node.renames)}),""`;
             }
         }
     };

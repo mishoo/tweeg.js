@@ -1,0 +1,26 @@
+-----FILE: base.twig
+BASE
+{% block test %}
+    test from base
+{% endblock %}
+-----FILE: middle.twig
+{% block test %}
+    test from middle
+    {{ parent() }}
+{% endblock %}
+{% block another %}
+    another one from middle
+    {{ parent() }}
+{% endblock %}
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% use "middle.twig" %}
+{% block test %}
+    test from child
+    {{ parent() }}
+{% endblock %}
+-----OUTPUT: child.twig
+BASE
+test from child
+test from middle
+test from base

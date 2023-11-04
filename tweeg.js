@@ -118,6 +118,7 @@ TWEEG = function(RUNTIME){
         NODE_VAR         : NODE_VAR,
         NODE_SEQ         : NODE_SEQ,
         NODE_LAMBDA      : NODE_LAMBDA,
+        NODE_NAMED_ARG   : NODE_NAMED_ARG,
 
         EMPTY_STRING     : EMPTY_STRING
     };

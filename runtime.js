@@ -501,7 +501,7 @@ TWEEG_RUNTIME = function(){
         };
     }
 
-    var globals = {};
+    var globals = Object.create(null);
 
     var TR = {
         t: function(main, blocks, macros) {

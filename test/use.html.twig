@@ -8,6 +8,9 @@ BASE
     test from middle
     {{ parent() }}
 {% endblock %}
+{% block boo %}
+    boo from middle
+{% endblock %}
 {% block another %}
     another one from middle
     {{ foo }}
@@ -21,6 +24,7 @@ BASE
     {{ parent() }}
     {% set foo = "foo" %}
     {{ block('myname') }}
+    {{ block('boo', 'middle.twig') }}
 {% endblock %}
 -----OUTPUT: child.twig
 BASE
@@ -29,3 +33,4 @@ test from middle
 test from base
 another one from middle
 foo
+boo from middle

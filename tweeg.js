@@ -1459,6 +1459,16 @@ TWEEG = function(RUNTIME){
                 if (node.func.value == "parent" && func_info && func_info.block) {
                     return "$PARENT($DATA," + JSON.stringify(func_info.name) + ")";
                 }
+                if (node.func.value == "block") {
+                    if (args.length == 2) {
+                        add_dependency(node.args[1]);
+                        return `$TR.block($DATA, ${args[0]}, ${args[1]})`;
+                    }
+                    if (args.length == 1) {
+                        return `$TR.block($DATA, ${args[0]})`;
+                    }
+                    throw new Error("block() expects 1 or 2 arguments");
+                }
                 if (node.func.value == "include") {
                     add_dependency(node.args[0]);
                     args.unshift("$DATA"); // include needs access to the environment

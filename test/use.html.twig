@@ -10,17 +10,22 @@ BASE
 {% endblock %}
 {% block another %}
     another one from middle
+    {{ foo }}
     {{ parent() }}
 {% endblock %}
 -----FILE: child.twig
 {% extends "base.twig" %}
-{% use "middle.twig" %}
+{% use "middle.twig" with another as myname %}
 {% block test %}
     test from child
     {{ parent() }}
+    {% set foo = "foo" %}
+    {{ block('myname') }}
 {% endblock %}
 -----OUTPUT: child.twig
 BASE
 test from child
 test from middle
 test from base
+another one from middle
+foo

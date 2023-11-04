@@ -780,7 +780,20 @@ TWEEG_RUNTIME = function(){
             return TR.include(name, context);
         },
 
-        block: function(context, name) {
+        block: function(context, name, template_name) {
+            if (template_name) {
+                var tmpl = TR.get(template_name);
+                if (!tmpl) {
+                    throw new Error("Could not find template " + template_name);
+                }
+                var save_blocks = BLOCKS;
+                BLOCKS = [ tmpl.$blocks ].concat(BLOCKS);
+                try {
+                    return TR.block(context, name);
+                } finally {
+                    BLOCKS = save_blocks;
+                }
+            }
             var b = findBlock(name);
             // XXX: what does PHP Twig do when block is missing?
             return b ? b[name](TR.env_ext(context, true)) : "";

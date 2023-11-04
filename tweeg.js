@@ -1589,6 +1589,9 @@ TWEEG = function(RUNTIME){
         function compile_sym(env, node) {
             var name = node.value;
             if (!env.lookup(name)) {
+                if (name == "_context") {
+                    return "$DATA";
+                }
                 if (globals.indexOf(name) < 0) {
                     globals.push(name);
                 }

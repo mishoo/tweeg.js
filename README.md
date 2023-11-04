@@ -149,9 +149,7 @@ The following statement tags are implemented, with the same semantics as in Twig
 
 - The runtime might be missing some filters/functions that are available in PHP Twig.  We don't guarantee that all Twig filters will be available in this particular package, but it's easy to add new filters in your own code (see next section).
 
-- No [`is constant`](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator.
-
-- No support for the `_context` variable.
+- No [`is constant`](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator, because it doesn't quite make sense in JavaScript.
 
 - … probably more, please report issues if you find them.  We strive for reasonably good compatibility with PHP Twig, because we need to run the *same* templates both on server and on client.
 

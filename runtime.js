@@ -341,6 +341,8 @@ TWEEG_RUNTIME = function(){
     }
 
     function range(beg, end, step) {
+        if (beg == null) beg = 0;
+        if (end == null) end = 0;
         if (step == null) step = 1;
         else if (step < 0) step = -step;
         else step = parseFloat(step);

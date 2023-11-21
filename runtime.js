@@ -685,8 +685,8 @@ TWEEG_RUNTIME = function(){
         },
 
         for: function($DATA, valsym, keysym, data, f) {
+            if (data == null) return "";
             $DATA = TR.env_ext($DATA);
-            if (data == null) data = [];
             var is_array = Array.isArray(data);
             var keys = is_array ? null : Object.keys(data);
             var n = keys ? keys.length : data.length;

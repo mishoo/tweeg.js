@@ -24,3 +24,10 @@
 {% if "foo" in [ 1, 2, "foo" ] %}
   ESTEEEEEEEEEEEEE
 {% endif %}
+
+{% macro bar(args) %}
+    {%- set stuff = args.stuff -%}
+    {{ stuff("crap") }}
+{% endmacro %}
+
+{{ me.bar({ stuff: stuff }) }}

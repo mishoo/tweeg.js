@@ -461,7 +461,11 @@ TWEEG = function(RUNTIME){
                     env.def(tmpl = X.gensym());
                 }
                 var defs = node.defs.map(function(def){
-                    env.def(def.ours.value);
+                    if (X.get_func_level() > 1) {
+                        env.def(def.ours.value);
+                    } else {
+                        X.root_env.def(def.ours.value);
+                    }
                     return X.output_name(def.ours.value) + "=" + tmpl
                         + "[" + JSON.stringify(X.output_name(def.theirs.value)) + "]";
                 });

@@ -19,7 +19,7 @@ let code = compile([
     //"second.html.twig",
     //"altered.html.twig",
     //"include-extend.html.twig"
-    "embed.html.twig"
+    "macros.html.twig"
 ], {
     runtime: runtime,
     tweeg: tweeg,
@@ -29,4 +29,4 @@ let code = compile([
 console.log(code);
 
 new Function("return " + code)()(runtime);
-console.log(runtime.exec("embed.html.twig"));
+console.log(runtime.exec("macros.html.twig"));

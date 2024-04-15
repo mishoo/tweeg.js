@@ -1,4 +1,4 @@
-TWEEG_RUNTIME = function(){
+function TWEEG_RUNTIME(){
     "use strict";
 
     var REGISTRY = {};
@@ -924,3 +924,5 @@ TWEEG_RUNTIME = function(){
 
     return TR;
 };
+
+module.exports = TWEEG_RUNTIME;

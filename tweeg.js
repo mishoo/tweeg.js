@@ -1,4 +1,4 @@
-TWEEG = function(RUNTIME){
+function TWEEG(RUNTIME){
 
     "use strict";
 
@@ -2106,3 +2106,5 @@ var $BOOL = $TR.bool\
 ,$NAMED_ARG = $TR.named_arg\
 ;" + code + "}";
 };
+
+module.exports = TWEEG;

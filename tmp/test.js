@@ -1,5 +1,5 @@
-require("../tweeg.js");
-require("../runtime.js");
+var TWEEG = require("../tweeg.js");
+var TWEEG_RUNTIME = require("../runtime.js");
 let compile = require("../compiler.js").compile;
 
 var runtime = TWEEG_RUNTIME();

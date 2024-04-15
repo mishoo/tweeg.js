@@ -228,8 +228,8 @@ The parser and compiler are defined in [`tweeg.js`](./tweeg.js).  Again, this fi
 Here's some sample usage:
 
 ```js
-require("./tweeg");
-require("./runtime");
+var TWEEG = require("./tweeg");
+var TWEEG_RUNTIME = require("./runtime");
 var runtime = TWEEG_RUNTIME(); // instantiate the runtime
 var tweeg = TWEEG(runtime);    // instantiate the compiler
 tweeg.init();                  // initialize the compiler

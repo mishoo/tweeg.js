@@ -1,5 +1,5 @@
-require("../tweeg.js");
-require("../runtime.js");
+var TWEEG = require("../tweeg.js");
+var TWEEG_RUNTIME = require("../runtime.js");
 
 // as seen before, initialize the runtime and the Tweeg object
 var runtime = TWEEG_RUNTIME();

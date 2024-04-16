@@ -2,8 +2,8 @@ var fs = require("fs");
 var path = require("path");
 var UglifyJS = require("uglify-js");
 
-require("./tweeg.js");
-require("./runtime.js");
+var TWEEG = require("./tweeg.js");
+var TWEEG_RUNTIME = require("./runtime.js");
 
 function compile(files, options) {
     function option(name, def) {
@@ -15,7 +15,6 @@ function compile(files, options) {
     var base = option("base", null);
     var strip_base = option("strip_base", null);
     var beautify = option("beautify", false);
-    var extend = option("extend", null);
     var runtime = option("runtime", TWEEG_RUNTIME());
     var tweeg = option("tweeg", TWEEG(runtime).init());
     var wrap_template = option("wrap_template", tmpl => tmpl);
@@ -110,4 +109,4 @@ function compile(files, options) {
     }
 }
 
-exports.compile = compile;
+module.exports = { compile: compile };

@@ -1,12 +1,12 @@
 #! /usr/bin/env node
 
-require("../tweeg");
-require("../runtime");
+var TWEEG = require("../tweeg");
+var TWEEG_RUNTIME = require("../runtime");
 
 var glob = require("glob");
 var path = require("path");
 var fs = require("fs");
-var UglifyJS = require("uglify-js");
+// var UglifyJS = require("uglify-js");
 
 var option_tests = process.argv[2];
 if (!option_tests) {

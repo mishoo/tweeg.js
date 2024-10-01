@@ -2,7 +2,7 @@ TWEEG = function(RUNTIME){
 
     "use strict";
 
-    var ALL_OPERATORS = [ "?", "|", "=", "=>" ];
+    var ALL_OPERATORS = [ "?", "|", "=", "=>", "..." ];
 
     var UNARY_OPERATORS = make_operators([
         [ "not" ],
@@ -45,6 +45,7 @@ TWEEG = function(RUNTIME){
     var NODE_EXPR_END     = "expr_end";
     var NODE_STAT_END     = "stat_end";
     var NODE_OPERATOR     = "operator";
+    var NODE_SPREAD       = "spread";
     var NODE_NUMBER       = "number";
     var NODE_PUNC         = "punc";
     var NODE_STR          = "string";
@@ -776,11 +777,25 @@ TWEEG = function(RUNTIME){
                 croak("Expected argument name at " + dump(node));
         }
 
+        function maybe_spread(cont) {
+            return function() {
+                if (looking_at(NODE_OPERATOR, "...")) {
+                    next();
+                    return {
+                        type: NODE_SPREAD,
+                        expr: parse_expression()
+                    };
+                } else {
+                    return cont();
+                }
+            };
+        }
+
         function parse_call(func) {
             return {
                 type: NODE_CALL,
                 func: func,
-                args: delimited("(", ")", ",", parse_expression)
+                args: delimited("(", ")", ",", maybe_spread(parse_expression))
             };
         }
 
@@ -836,14 +851,14 @@ TWEEG = function(RUNTIME){
         function parse_array() {
             return {
                 type: NODE_ARRAY,
-                body: delimited("[", "]", ",", parse_expression)
+                body: delimited("[", "]", ",", maybe_spread(parse_expression))
             };
         }
 
         function parse_hash() {
             return {
                 type: NODE_HASH,
-                body: delimited("{", "}", ",", parse_hash_entry)
+                body: delimited("{", "}", ",", maybe_spread(parse_hash_entry))
             };
         }
 
@@ -1226,8 +1241,13 @@ TWEEG = function(RUNTIME){
               case NODE_SLICE       : return compile_slice(env, node);
               case NODE_VAR         : return compile_var(env, node);
               case NODE_LAMBDA      : return compile_lambda(env, node);
+              case NODE_SPREAD      : return compile_spread(env, node);
             }
             throw new Error("Cannot compile node " + JSON.stringify(node));
+        }
+
+        function compile_spread(env, node) {
+            return "..." + compile(env, node.expr);
         }
 
         function compile_lambda(env, node) {
@@ -1246,7 +1266,9 @@ TWEEG = function(RUNTIME){
         }
 
         function parens(str) {
-            return "(" + str + ")";
+            if (!/^\.\.\./.test(str))
+                return "(" + str + ")";
+            return str;
         }
 
         function compile_prog(env, node) {
@@ -1383,22 +1405,15 @@ TWEEG = function(RUNTIME){
         }
 
         function compile_hash(env, node) {
-            var constant_keys = true;
-            for (var i = 0; i < node.body.length; ++i) {
-                var item = node.body[i];
-                if (!is_constant(item.key)) {
-                    constant_keys = false;
-                    break;
+            return "{" + node.body.map(function(item){
+                if (item.type == NODE_SPREAD) {
+                    return compile_spread(env, item);
+                } else if (is_constant(item.key)) {
+                    return `${ JSON.stringify(item.key.value) }: ${ compile(env, item.value) }`;
+                } else {
+                    return `[${ compile(env, item.key) }]: ${ compile(env, item.value) }`;
                 }
-            }
-            if (constant_keys) {
-                return "{" + node.body.map(function(item){
-                    return JSON.stringify(item.key.value) + ":" + compile(env, item.value);
-                }).join(",") + "}";
-            }
-            return "$HASH([" + node.body.map(function(item){
-                return compile(env, item.key) + "," + compile(env, item.value);
-            }).join(",") + "])";
+            }).join(",") + "}";
         }
 
         function compile_sym(env, node) {
@@ -1863,7 +1878,6 @@ var $BOOL = $TR.bool\
 ,$FILTER = $TR.filter\
 ,$FOR = $TR.for\
 ,$FUNC = $TR.func\
-,$HASH = $TR.hash\
 ,$INCLUDE = $TR.include\
 ,$ITERABLE = $TR.iterable\
 ,$MERGE = $TR.merge\

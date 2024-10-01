@@ -42,7 +42,7 @@ function compile(files, options) {
                 unsafe       : true,
                 unsafe_comps : true,
                 hoist_vars   : true,
-                pure_funcs   : ("$OUT,$ESC,$ESC_html,$ESC_js,$FILTER,$HASH,$MERGE,$NUMBER,$STR,$EMPTY,$SLICE,$GLOBAL").split(/,/)
+                pure_funcs   : ("$OUT,$ESC,$ESC_html,$ESC_js,$FILTER,$MERGE,$NUMBER,$STR,$EMPTY,$SLICE,$GLOBAL").split(/,/)
             }
         });
         return ugly.code;

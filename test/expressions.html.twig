@@ -126,3 +126,29 @@ not null
 {"first":"foo","second":"bar","third":"baz"}
 {"first":"foo","third":"baz","second":"bar"}
 {"first":"foo","third":"baz","second":"bar"}
+
+
+
+-----FILE
+{%- set a = [ 1, 2, 3 ] -%}
+{{ [ ...a ] | join(", ") }}
+{{ [ ...a, 'after' ] | join(", ") }}
+{{ [ 'before', ...a ] | join(", ") }}
+{{ [ 'before', ...a, 'after' ] | join(", ") }}
+-----OUTPUT
+1, 2, 3
+1, 2, 3, after
+before, 1, 2, 3
+before, 1, 2, 3, after
+
+
+
+-----FILE
+{%- set a = { foo: "foo", bar: "bar" } -%}
+{{ { ...a }.foo }}
+{{ { ...a, baz: "after" }.foo }} {{ { ...a, baz: "after" }.baz }}
+{{ { x: "before", ...a, baz: "after" }.foo }} {{ { baz: "before", ...a }.baz }}
+-----OUTPUT
+foo
+foo after
+foo before

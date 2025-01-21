@@ -1,0 +1,20 @@
+-----FILE: index
+Foo
+{{ source("uncompiled") }}
+Bar
+-----RAW: uncompiled
+{{ included as-is }}
+-----OUTPUT
+Foo
+{{ included as-is }}
+Bar
+
+
+
+-----FILE: index
+Foo
+{{ source("missing", ignore_missing = true) }}
+Bar
+-----OUTPUT
+Foo
+Bar

@@ -41,7 +41,7 @@ function TWEEG_RUNTIME(){
     }
 
     function RawString(str) {
-        this.value = str;
+        this.value = string(str);
     }
     RawString.prototype = {
         toString: function() {
@@ -542,6 +542,10 @@ function TWEEG_RUNTIME(){
                 if (x.variables) Object.assign(ctx, x.variables);
                 return safeString(TR.include(x.template, ctx, x.ignore_missing));
             }, [ '$DATA', 'template', 'variables', 'with_context', 'ignore_missing' ]),
+            source: readMacroArgs(function(x) {
+                if (x.ignore_missing == null) x.ignore_missing = false;
+                return safeString(TR.source(x.name, x.ignore_missing));
+            }, [ 'name', 'ignore_missing' ]),
         },
 
         filter: {
@@ -754,7 +758,7 @@ function TWEEG_RUNTIME(){
 
         merge: merge,
 
-        include: function(name, context, optional) {
+        include: function(name, context, ignore_missing) {
             if (Array.isArray(name)) {
                 // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {
@@ -763,12 +767,20 @@ function TWEEG_RUNTIME(){
                         return ret;
                     }
                 }
-                if (!optional) {
+                if (!ignore_missing) {
                     throw new Error("Could not find any of the templates: " + JSON.stringify(name));
                 }
             } else {
-                return TR.exec(name, context, optional);
+                return TR.exec(name, context, ignore_missing);
             }
+        },
+
+        source: function(name, ignore_missing) {
+            let source = TR.get(name + "/source");
+            if (source == null && !ignore_missing) {
+                throw new Error("Could not find source " + name);
+            }
+            return source;
         },
 
         extend: function(name, context) {
@@ -802,8 +814,12 @@ function TWEEG_RUNTIME(){
 
         register: function(name, template) {
             name = name.replace(/^\/*/, "");
-            template = REGISTRY[name] = template();
-            template.$name = name;
+            if (typeof template == "function") {
+                template = REGISTRY[name] = template();
+                template.$name = name;
+            } else {
+                REGISTRY[name] = template; // plain source
+            }
         },
 
         get: function(tmpl) {

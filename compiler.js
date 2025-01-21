@@ -48,13 +48,13 @@ function compile(files, options) {
         return ugly.code;
     }
 
-    function compileFile(template_name, source) {
+    function compileFile(template_name, parent_fullname, plain) {
         template_name = template_name.replace(/\\/g, "/").replace(/\/\/+/g, "/");
-        var fullname = replacePaths(template_name);
+        let fullname = replacePaths(template_name);
         if (!/^\.?\//.test(fullname) && base) {
             fullname = path.resolve(path.join(base, fullname));
-        } else if (source) {
-            fullname = path.resolve(path.dirname(source), fullname);
+        } else if (parent_fullname) {
+            fullname = path.resolve(path.dirname(parent_fullname), fullname);
         } else {
             fullname = path.resolve(fullname);
         }
@@ -63,15 +63,18 @@ function compile(files, options) {
         }
         compiled[fullname] = true;
 
-        var tmpl = fs.readFileSync(fullname, "utf8");
-        var ast, result;
+        let tmpl = fs.readFileSync(fullname, "utf8");
+        let result;
 
-        if (strip_base && !source) {
+        if (strip_base && !parent_fullname) {
             template_name = path.relative(strip_base, template_name);
         }
 
-        try {
-            ast = tweeg.parse(tmpl);
+        if (plain) {
+            result = { code: JSON.stringify(tmpl) };
+            template_name += "/source";
+        } else try {
+            let ast = tweeg.parse(tmpl);
             result = tweeg.compile(ast, {
                 autoescape: option("escape", "html")
             });
@@ -79,17 +82,20 @@ function compile(files, options) {
             throw new Error(`Template: ${template_name}\n${ex}`);
         }
 
-        if (!nodeps) result.dependencies.forEach(function(file){
-            if (typeof file == "string") {
-                compileFile(file, fullname);
+        if (!nodeps && !plain) result.dependencies.forEach(function(node){
+            if (node.type == "string") {
+                compileFile(node.value, fullname, node.plain);
             } else {
-                warn(`Complex dependency in ${template_name}: ${JSON.stringify(file)}`);
+                warn(`Complex dependency in ${template_name}: ${JSON.stringify(node)}`);
             }
         });
 
-        let newcode = wrap_template(`$REGISTER(${JSON.stringify(template_name)}, ${result.code});`, template_name);
+        let newcode = `$REGISTER(${JSON.stringify(template_name)}, ${result.code});`;
+        if (!plain) {
+            newcode = wrap_template(newcode, template_name);
+        }
 
-        if (hook) {
+        if (hook && !plain) {
             hook(template_name, fullname, newcode);
         }
 

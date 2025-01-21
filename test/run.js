@@ -31,7 +31,7 @@ function runTest(filename) {
     console.log(`Running ${testname}`);
     var testdata = fs.readFileSync(filename, "utf8");
     testdata = testdata.replace(/^#.*\n/mg, "");
-    var rx_head = /^-----\s*(file|input|output)\s*(?:\:\s*([a-z0-9_.-]+))?\s*/mgi;
+    var rx_head = /^-----\s*(file|input|output|raw)\s*(?:\:\s*([a-z0-9_.-]+))?\s*/mgi;
     var rx_body = /[^]*?(?=^-----)/mg;
     var pos = 0;
     var runtime = TWEEG_RUNTIME();
@@ -70,6 +70,11 @@ function runTest(filename) {
             // } catch(ex) {
             //     console.error("!!!", part);
             // }
+        }
+        else if (/^raw/i.test(head[1])) {
+            let filename = head[2] + "/source";
+            let part = `$REGISTER(${JSON.stringify(filename)}, ${JSON.stringify(data)});`;
+            code += part;
         }
         else if (/^input/i.test(head[1])) {
             if (head[2]) {

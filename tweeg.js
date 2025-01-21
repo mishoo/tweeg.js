@@ -1289,15 +1289,12 @@ function TWEEG(RUNTIME){
         }
 
         function add_dependency(node) {
-            if (node.type == NODE_STR) {
-                dependencies.push(node.value);
-            } else if (node.type == NODE_ARRAY) {
+            if (node.type == NODE_ARRAY) {
                 node.body.forEach(add_dependency);
             } else if (node.type == NODE_COND) {
                 add_dependency(node.then);
                 add_dependency(node.else);
             } else {
-                // let's mark complex deps by just adding the AST node
                 dependencies.push(node);
             }
         }
@@ -1499,6 +1496,10 @@ function TWEEG(RUNTIME){
                 if (node.func.value == "include") {
                     add_dependency(node.args[0]);
                     args.unshift("$DATA"); // include needs access to the environment
+                }
+                else if (node.func.value == "source") {
+                    node.args[0].plain = true;
+                    add_dependency(node.args[0]);
                 }
                 return `$FUNC[${JSON.stringify(node.func.value)}](${args.join(",")})`;
             }

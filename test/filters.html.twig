@@ -100,9 +100,41 @@ Bob Smith, Alice Dupond
 {%- set numbers = [1, 2, 3] -%}
 {{ numbers|reduce((carry, v) => carry + v) }}
 {{ numbers|reduce((carry, v) => carry + v, 30) }}
+{{ numbers|reduce((carry, v, k) => carry + v * k) }}
+{{ numbers|reduce((carry, v, k) => carry + v * k, 10) }}
 -----OUTPUT
 6
 36
+8
+18
+
+
+
+-----FILE
+{% set sizes = [34, 36, 38, 40, 42] %}
+{{ sizes|find(v => v > 38) }}
+-----OUTPUT
+40
+
+
+
+-----FILE
+{% set sizes = {
+    xxs: 32,
+    xs:  34,
+    s:   36,
+    m:   38,
+    l:   40,
+    xl:  42,
+} %}
+{{ sizes|find(v => v > 38) }}
+{{ sizes|find((v, k) => 's' not in k) }}
+{% set my_size = 39 %}
+{{ sizes|find(v => v >= my_size) }}
+-----OUTPUT
+40
+38
+40
 
 
 

@@ -310,34 +310,28 @@ function TWEEG_RUNTIME(){
     }
 
     function filter(thing, predicate) {
-        if (Array.isArray(thing))
-            return thing.filter(predicate);
-        var result = {};
-        Object.keys(thing).map(function(key){
-            return { key: key, val: thing[key] };
-        }).filter(function(el){
-            return predicate(el.val, el.key);
-        }).forEach(function(x){
-            result[x.key] = x.val;
-        });
-        return result;
+        if (Array.isArray(thing)) return thing.filter(predicate);
+        return Object.entries(thing).reduce((ret, [ key, val ]) => {
+            if (predicate(val, key))
+                ret[key] = val;
+            return ret;
+        }, {});
+    }
+
+    function find(thing, predicate) {
+        if (Array.isArray(thing)) return thing.find(predicate);
+        return Object.entries(thing).find(([ key, val ]) => predicate(val, key))?.[1];
     }
 
     function map(thing, func) {
-        if (Array.isArray(thing))
-            return thing.map(func);
-        return Object.keys(thing).map(function(key){
-            return func(thing[key], key);
-        });
+        if (Array.isArray(thing)) return thing.map(func);
+        return Object.entries(thing).map(([ key, val ]) => func(val, key));
     }
 
     function reduce(thing, func, init) {
         if (init == null) init = 0;
-        if (Array.isArray(thing))
-            return thing.reduce(func, init);
-        return Object.keys(thing).map(function(key){
-            return thing[key];
-        }).reduce(func, init);
+        if (Array.isArray(thing)) return thing.reduce(func, init);
+        return Object.entries(thing).reduce((ret, [ key, val ]) => func(ret, val, key), init);
     }
 
     function range(beg, end, step) {
@@ -622,6 +616,7 @@ function TWEEG_RUNTIME(){
             slice: slice,
             sort: sort,
             filter: filter,
+            find: find,
             map: map,
             reduce: reduce,
             length: length,

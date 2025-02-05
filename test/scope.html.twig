@@ -29,8 +29,7 @@
 -----FILE
 {% set foo = 10 %}
 {% with { bar: 20 } only %}
-  {# XXX: uncomment this when it no longer errors out #}
-  {# foo #}.{{ bar }}
+  {{ foo }}.{{ bar }}
 {% endwith %}
 {{ foo }}.{{ bar }}
 -----OUTPUT
@@ -65,3 +64,27 @@ baz=baz
 foo=
 bar=
 baz=baz
+
+
+
+-----FILE: with
+{% set scope = {
+    foo: "foo",
+    bar: "bar",
+} %}
+{% set outside = "before" %}
+{% with scope %}
+    foo = {{ foo }}
+    {% set foo = "changed" %}
+    foo = {{ foo }}
+    {% set outside = "changed" %}
+    outside = {{ outside }}
+{% endwith %}
+after foo = {{ scope.foo }}
+after outside = {{ outside }}
+-----OUTPUT: with
+foo = foo
+foo = changed
+outside = changed
+after foo = foo
+after outside = before

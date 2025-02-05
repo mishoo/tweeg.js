@@ -18,3 +18,32 @@ foo=4
 foo=3
 foo=2
 foo=1
+
+
+
+-----FILE: index
+{% set foo = "foo" %}
+{% include "change-foo" %}
+foo = {{ foo }}
+-----FILE: change-foo
+foo = {{ foo }}
+{% set foo = "bar" %}
+-----OUTPUT
+foo = foo
+foo = foo
+
+
+
+-----FILE: index
+{% set test = "test" %}
+{{ include('foo') }}
+{{ include('foo', with_context = false) }}
+{{ include('foo', { bar: "bar" }) }}
+{{ include('foo', { bar: "bar" }, with_context = false) }}
+-----FILE: foo
+test={{ test }}, bar={{ bar }}
+-----OUTPUT
+test=test, bar=
+test=, bar=
+test=test, bar=bar
+test=, bar=bar

@@ -1,12 +1,12 @@
 #! /usr/bin/env node
 
-require("../tweeg");
-require("../runtime");
+var TWEEG = require("../tweeg");
+var TWEEG_RUNTIME = require("../runtime");
 
 var glob = require("glob");
 var path = require("path");
 var fs = require("fs");
-var UglifyJS = require("uglify-js");
+// var UglifyJS = require("uglify-js");
 
 var option_tests = process.argv[2];
 if (!option_tests) {
@@ -31,7 +31,7 @@ function runTest(filename) {
     console.log(`Running ${testname}`);
     var testdata = fs.readFileSync(filename, "utf8");
     testdata = testdata.replace(/^#.*\n/mg, "");
-    var rx_head = /^-----\s*(file|input|output)\s*(?:\:\s*([a-z0-9_.-]+))?\s*/mgi;
+    var rx_head = /^-----\s*(file|input|output|raw)\s*(?:\:\s*([a-z0-9_.-]+))?\s*/mgi;
     var rx_body = /[^]*?(?=^-----)/mg;
     var pos = 0;
     var runtime = TWEEG_RUNTIME();
@@ -60,11 +60,21 @@ function runTest(filename) {
             if (!main) main = filename;
             let ast = tweeg.parse(data);
             let res = tweeg.compile(ast);
-            code += `$REGISTER(${JSON.stringify(filename)}, ${res.code});`;
+            let part = `$REGISTER(${JSON.stringify(filename)}, ${res.code});`;
+            code += part;
 
-            // let tmp = UglifyJS.parse(code);
-            // let beauty = tmp.print_to_string({ beautify: true });
-            // console.log(beauty);
+            // try {
+            //     let tmp = UglifyJS.parse(part);
+            //     let beauty = tmp.print_to_string({ beautify: true });
+            //     console.log("\n" + beauty);
+            // } catch(ex) {
+            //     console.error("!!!", part);
+            // }
+        }
+        else if (/^raw/i.test(head[1])) {
+            let filename = head[2] + "/source";
+            let part = `$REGISTER(${JSON.stringify(filename)}, ${JSON.stringify(data)});`;
+            code += part;
         }
         else if (/^input/i.test(head[1])) {
             if (head[2]) {

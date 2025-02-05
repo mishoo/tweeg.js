@@ -119,43 +119,37 @@ div.innerHTML = TMPL.exec("index.html.twig", {
 
 The following statement tags are implemented, with the same semantics as in Twig:
 
-- [`autoescape`](http://twig.sensiolabs.org/doc/2.x/tags/autoescape.html) (only “html” and “js” escaping strategies are implemented; “html” escaping is on by default).
+- [`autoescape`](http://twig.sensiolabs.org/doc/3.x/tags/autoescape.html) (only “html” and “js” escaping strategies are implemented; “html” escaping is on by default).
 
-- [`if`](http://twig.sensiolabs.org/doc/2.x/tags/if.html)
+- [`if`](http://twig.sensiolabs.org/doc/3.x/tags/if.html)
 
-- [`for`](http://twig.sensiolabs.org/doc/2.x/tags/for.html)
+- [`for`](http://twig.sensiolabs.org/doc/3.x/tags/for.html)
 
-- [`do`](http://twig.sensiolabs.org/doc/2.x/tags/do.html)
+- [`do`](http://twig.sensiolabs.org/doc/3.x/tags/do.html)
 
-- [`set`](http://twig.sensiolabs.org/doc/2.x/tags/set.html)
+- [`set`](http://twig.sensiolabs.org/doc/3.x/tags/set.html)
 
-- [`macro`](http://twig.sensiolabs.org/doc/2.x/tags/macro.html), along with `from` and `import`.
+- [`macro`](http://twig.sensiolabs.org/doc/3.x/tags/macro.html), along with [`from`](https://twig.symfony.com/doc/3.x/tags/from.html) and [`import`](https://twig.symfony.com/doc/3.x/tags/import.html).
 
-- [`spaceless`](http://twig.sensiolabs.org/doc/2.x/tags/spaceless.html) (poorly implemented, we could do better here)
+- [`spaceless`](http://twig.sensiolabs.org/doc/3.x/tags/spaceless.html) (poorly implemented, we could do better here)
 
-- [`include`](http://twig.sensiolabs.org/doc/2.x/tags/include.html)
+- [`include`](http://twig.sensiolabs.org/doc/3.x/tags/include.html), also [as function](https://twig.symfony.com/doc/3.x/functions/include.html)
 
-- [`with`](http://twig.sensiolabs.org/doc/2.x/tags/with.html)
+- [`with`](http://twig.sensiolabs.org/doc/3.x/tags/with.html)
 
-- [`filter`](http://twig.sensiolabs.org/doc/2.x/tags/filter.html)
+- [`filter`](http://twig.sensiolabs.org/doc/3.x/tags/filter.html)
 
-- [`verbatim`](http://twig.sensiolabs.org/doc/2.x/tags/verbatim.html)
+- [`verbatim`](http://twig.sensiolabs.org/doc/3.x/tags/verbatim.html)
 
-TODO: [block](http://twig.sensiolabs.org/doc/2.x/tags/block.html), [extends](http://twig.sensiolabs.org/doc/2.x/tags/extends.html), [use](http://twig.sensiolabs.org/doc/2.x/tags/use.html), [embed](http://twig.sensiolabs.org/doc/2.x/tags/embed.html).  We have the infrastructure to easily implement all of these.
+- [`block`](http://twig.sensiolabs.org/doc/3.x/tags/block.html), [`extends`](http://twig.sensiolabs.org/doc/3.x/tags/extends.html), [`use`](http://twig.sensiolabs.org/doc/3.x/tags/use.html), [`embed`](http://twig.sensiolabs.org/doc/3.x/tags/embed.html),
+[`block` function](https://twig.symfony.com/doc/3.x/functions/block.html),
+[`parent` function](https://twig.symfony.com/doc/3.x/functions/parent.html)
 
 ## Known issues / differences from Twig
 
-Except for the TODO above, which at some point will be implemented, we differ from PHP Twig in a few more aspects:
+- The runtime might be missing some filters/functions that are available in PHP Twig.  We don't guarantee that all Twig filters will be available in this particular package, but it's easy to add new filters in your own code (see next section).
 
-- The runtime is missing a lot of standard filters/functions.  We don't guarantee that all Twig filters will be available in this particular package, but it's easy to add new filters in your own code (see next section).
-
-- No support for named arguments in filters/functions.  Syntax like this is invalid: `{{ include('template.html', with_context = false) }}` (in fact, we don't yet have a `include` function either).
-
-- No [`is constant`](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator.
-
-- No support for the `_context` variable.  In the compiled code, template variables are simple JS variables (which also means that you must be careful about variable names, they should not clash with standard JS keywords).  It's possible that I change my mind about this item.
-
-- The `{% with scope %}` tag is implemented with the standard JS `with` keyword.  This will prevent name minification in the compiled code and will make your template run a bit slower — in short, do not use `with` with an argument.  It's safe to use it without an argument in order to create a nested scope.
+- No [`is constant`](http://twig.sensiolabs.org/doc/2.x/tests/constant.html) operator, because it doesn't quite make sense in JavaScript.
 
 - … probably more, please report issues if you find them.  We strive for reasonably good compatibility with PHP Twig, because we need to run the *same* templates both on server and on client.
 
@@ -225,7 +219,7 @@ without caring about any prefix.
 
 ## Using the low-level API to compile one template
 
-Warning: this API is kinda ugly, but it's not intended for public consumption.  Still, you have to understand it if you need to implement syntactic extensions (i.e. custom tags).
+Warning: this API is kinda ugly, but it's not intended for public consumption. Still, you have to understand it if you need to implement syntactic extensions (i.e. custom tags).
 
 You've already met the [`runtime`](./runtime.js).  It defines a single global function (`TWEEG_RUNTIME`) that you must call in order to instantiate a runtime object (notice, no `new` required).
 
@@ -234,8 +228,8 @@ The parser and compiler are defined in [`tweeg.js`](./tweeg.js).  Again, this fi
 Here's some sample usage:
 
 ```js
-require("./tweeg");
-require("./runtime");
+var TWEEG = require("./tweeg");
+var TWEEG_RUNTIME = require("./runtime");
 var runtime = TWEEG_RUNTIME(); // instantiate the runtime
 var tweeg = TWEEG(runtime);    // instantiate the compiler
 tweeg.init();                  // initialize the compiler
@@ -264,13 +258,13 @@ To briefly describe what happens:
 
 - To instantiate the actual template, we must call all these functions, making sure we pass the runtime to the function resulted from `TWEEG.wrap_code`.
 
-- Finally, an instantiated template is a simple object having a `$main` method.  Call that with the template arguments in order to run the template.
+- Finally, an instantiated template is a simple object having a `$main` method. Call that with the template arguments in order to run the template.
 
 It could also help to take a look in the high-level “compiler”​ (sorry for the name confusion, but you know, naming things is one of the most difficult problems in computer science).  See it in [`compiler.js`](./compiler.js).  It uses the low-level API in order to compile one or more templates together.
 
 ## Parser/compiler extension
 
-If you reached this far I will assume that you are comfortable reading source code.  See how our `CORE_TAGS` are implemented in [`tweeg.js`](./tweeg.js).  Here is a (non-trivial) example of a custom tag implemented outside our core module.
+If you reached this far I will assume that you are comfortable reading source code.  See how our `CORE_TAGS` are implemented in [`tweeg.js`](./tweeg.js). Here is a (non-trivial) example of a custom tag implemented outside our core module.
 
 Let's say we wanted to implement a `switch` tag that works like this:
 

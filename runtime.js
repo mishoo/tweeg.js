@@ -1,13 +1,38 @@
-TWEEG_RUNTIME = function(){
+function TWEEG_RUNTIME(){
     "use strict";
 
     var REGISTRY = {};
-
-    var CURRENT = null;
-
     var PATHS = {};
 
-    function Template() {}
+    // runtime information
+    var CURRENT = null;         // currently running template
+    var BLOCKS = [];            // currently available blocks
+
+    function findBlock(name) {
+        for (var i = 0; i < BLOCKS.length; ++i) {
+            var b = BLOCKS[i];
+            if (b[name]) return b;
+        }
+    }
+
+    function withShadowBlock(name, func) {
+        var b = findBlock(name);
+        if (!b) return func();
+        var save_handler = b[name];
+        try {
+            delete b[name];
+            return func();
+        } finally {
+            b[name] = save_handler;
+        }
+    }
+
+    function Template(main, blocks, macros) {
+        this.$main = main;
+        TR.merge(this, macros);
+        this.$macros = macros;
+        this.$blocks = blocks;
+    }
 
     function replace_paths(filename) {
         return filename.replace(/@[a-z0-9_]+/ig, function(name){
@@ -16,7 +41,7 @@ TWEEG_RUNTIME = function(){
     }
 
     function RawString(str) {
-        this.value = str;
+        this.value = string(str);
     }
     RawString.prototype = {
         toString: function() {
@@ -81,6 +106,9 @@ TWEEG_RUNTIME = function(){
         if (thing instanceof RawString) {
             return thing.value;
         }
+        if (thing instanceof Function || typeof thing == "function") {
+            return string(thing());
+        }
         if (thing != null && thing !== false) {
             if (typeof thing == "object") {
                 return "Array";
@@ -114,6 +142,9 @@ TWEEG_RUNTIME = function(){
     }
 
     function empty(val) {
+        if (val instanceof Function || typeof val == "function") {
+            return empty(val());
+        }
         if (val === "" || val == null || val === false) {
             return true;
         }
@@ -310,6 +341,8 @@ TWEEG_RUNTIME = function(){
     }
 
     function range(beg, end, step) {
+        if (beg == null) beg = 0;
+        if (end == null) end = 0;
         if (step == null) step = 1;
         else if (step < 0) step = -step;
         else step = parseFloat(step);
@@ -444,13 +477,52 @@ TWEEG_RUNTIME = function(){
         });
     }
 
-    var globals = {};
+    function NamedArg(name, val) {
+        this.name = name;
+        this.value = val;
+    }
+
+    function readMacroArgs(func, names) {
+        return function() {
+            var data = Object.create(null);
+            var hasNamed = false;
+            var n = Math.min(names.length, arguments.length);
+            for (var i = 0; i < n; ++i) {
+                var key = names[i];
+                var val = arguments[i];
+                if (val instanceof NamedArg) {
+                    key = val.name;
+                    val = val.value;
+                    hasNamed = true;
+                } else if (hasNamed) {
+                    throw new Error("Unnamed argument present after named argument");
+                }
+                data[key] = val;
+            }
+            return func.call(null, data, [].slice.call(arguments, names.length));
+        };
+    }
+
+    var globals = Object.create(null);
 
     var TR = {
-        t: function(data) {
-            // make a Template instance
-            // XXX: inheritance
-            return TR.merge(new Template(), data);
+        t: function(main, blocks, macros) {
+            return new Template(main, blocks, macros);
+        },
+
+        env_ext: function(env, locked) {
+            let ext = Object.create(env);
+            if (locked) ext["%locked"] = true;
+            return ext;
+        },
+
+        env_set: function(env, name, val) {
+            var dest = env;
+            if (name in env) {
+                while (dest && !HOP.call(dest, "%locked") && !HOP.call(dest, name))
+                    dest = Object.getPrototypeOf(dest);
+            }
+            return (dest || env)[name] = val;
         },
 
         func: {
@@ -462,11 +534,23 @@ TWEEG_RUNTIME = function(){
             max: max,
             min: min,
             attribute: attribute,
-            random: random
+            random: random,
+            include: readMacroArgs(function(x) {
+                if (x.with_context == null) x.with_context = true;
+                if (x.ignore_missing == null) x.ignore_missing = false;
+                let ctx = x.with_context ? TR.env_ext(x.$DATA, true) : Object.create(null);
+                if (x.variables) Object.assign(ctx, x.variables);
+                return safeString(TR.include(x.template, ctx, x.ignore_missing));
+            }, [ '$DATA', 'template', 'variables', 'with_context', 'ignore_missing' ]),
+            source: readMacroArgs(function(x) {
+                if (x.ignore_missing == null) x.ignore_missing = false;
+                return safeString(TR.source(x.name, x.ignore_missing));
+            }, [ 'name', 'ignore_missing' ]),
         },
 
         filter: {
             json_encode: function(val, indent) {
+                if (val === void 0) val = null;
                 return JSON.stringify(val, null, indent);
             },
             e: function(val, strategy) {
@@ -499,7 +583,7 @@ TWEEG_RUNTIME = function(){
             merge: function(a, b) {
                 if (Array.isArray(a) && Array.isArray(b))
                     return a.concat(b);
-                return merge(a, b);
+                return merge({}, a, b);
             },
             replace: function(str, parts) {
                 str = string(str);
@@ -518,6 +602,14 @@ TWEEG_RUNTIME = function(){
             column: function(array, field) {
                 return array.map(function(obj) {
                     return obj[field];
+                });
+            },
+            nl2br: function(str) {
+                return safeString(html_escape(string(str)).value.replace(/(?:\r\n|\r|\n)/g, "<br>"));
+            },
+            title: function(str) {
+                return string(str).replace(/(?:^|\s|["'([{])+\S/g, function (m) {
+                    return m.toUpperCase();
                 });
             },
             keys: keys,
@@ -589,8 +681,9 @@ TWEEG_RUNTIME = function(){
             return safeString(ret);
         },
 
-        for: function(data, f) {
-            if (data == null) data = [];
+        for: function($DATA, valsym, keysym, data, f) {
+            if (data == null) return "";
+            $DATA = TR.env_ext($DATA);
             var is_array = Array.isArray(data);
             var keys = is_array ? null : Object.keys(data);
             var n = keys ? keys.length : data.length;
@@ -605,7 +698,12 @@ TWEEG_RUNTIME = function(){
             var result = [];
             function add(el, i) {
                 loop.last = !loop.revindex0;
-                var val = f(loop, el, i);
+                $DATA[valsym] = el;
+                if (keysym) {
+                    $DATA[keysym] = i;
+                }
+                $DATA["loop"] = loop;
+                var val = f($DATA);
                 if (val !== TR) {
                     // for `for`-s that define a condition, the
                     // compiled code returns TR by convention when the
@@ -626,9 +724,11 @@ TWEEG_RUNTIME = function(){
                 });
             }
             if (!result.length) {
-                // called without parameters will execute the `else`
-                // clause if present
-                result.push(f());
+                // called without `loop`, it will execute the `else`
+                // clause if present. It should not be there, but
+                // let's delete it anyway.
+                delete $DATA.loop;
+                result.push(f($DATA));
             }
             return TR.out(result);
         },
@@ -658,32 +758,76 @@ TWEEG_RUNTIME = function(){
 
         merge: merge,
 
-        include: function(name, context, optional) {
+        include: function(name, context, ignore_missing) {
             if (Array.isArray(name)) {
                 // XXX: move the complication in `with` (?)
                 for (var i = 0; i < name.length; ++i) {
-                    var ret = TR.exec(name[i], true, context);
+                    var ret = TR.exec(name[i], context, true);
                     if (ret != null) {
                         return ret;
                     }
                 }
-                if (!optional) {
+                if (!ignore_missing) {
                     throw new Error("Could not find any of the templates: " + JSON.stringify(name));
                 }
             } else {
-                return TR.exec(name, context, optional);
+                return TR.exec(name, context, ignore_missing);
             }
+        },
+
+        source: function(name, ignore_missing) {
+            let source = TR.get(name + "/source");
+            if (source == null && !ignore_missing) {
+                throw new Error("Could not find source " + name);
+            }
+            return source;
+        },
+
+        extend: function(name, context) {
+            return TR.include(name, context);
+        },
+
+        block: function(context, name, template_name) {
+            if (template_name) {
+                var tmpl = TR.get(template_name);
+                if (!tmpl) {
+                    throw new Error("Could not find template " + template_name);
+                }
+                var save_blocks = BLOCKS;
+                BLOCKS = [ tmpl.$blocks ].concat(BLOCKS);
+                try {
+                    return TR.block(context, name);
+                } finally {
+                    BLOCKS = save_blocks;
+                }
+            }
+            var b = findBlock(name);
+            // XXX: what does PHP Twig do when block is missing?
+            return b ? b[name](TR.env_ext(context, true)) : "";
+        },
+
+        parent: function(context, block) {
+            return withShadowBlock(block, function(){
+                return TR.block(context, block);
+            });
         },
 
         register: function(name, template) {
             name = name.replace(/^\/*/, "");
-            template = REGISTRY[name] = template();
-            template.$name = name;
+            if (typeof template == "function") {
+                template = REGISTRY[name] = template();
+                template.$name = name;
+            } else {
+                REGISTRY[name] = template; // plain source
+            }
         },
 
         get: function(tmpl) {
             if (tmpl instanceof Template) {
                 return tmpl;
+            }
+            if (REGISTRY[tmpl]) {
+                return REGISTRY[tmpl];
             }
             if (CURRENT) {
                 tmpl = TR.resolve(CURRENT.$name, tmpl);
@@ -698,11 +842,15 @@ TWEEG_RUNTIME = function(){
                 if (ignore_missing) return null;
                 throw new Error("Could not find template " + template_name);
             }
-            var save = CURRENT;
+            var save_current = CURRENT;
+            var save_blocks = BLOCKS;
             try {
-                return func(CURRENT = tmpl);
+                BLOCKS = BLOCKS.concat(tmpl.$blocks);
+                CURRENT = tmpl;
+                return func(tmpl);
             } finally {
-                CURRENT = save;
+                CURRENT = save_current;
+                BLOCKS = save_blocks;
             }
         },
 
@@ -710,6 +858,23 @@ TWEEG_RUNTIME = function(){
             return TR.with(template_name, function(tmpl){
                 return "" + tmpl.$main(args || {});
             }, ignore_missing);
+        },
+
+        use: function(template_name, renames) {
+            var tmpl = TR.get(template_name);
+            if (!tmpl) {
+                throw new Error("Could not find template " + template_name);
+            }
+            let blocks = tmpl.$blocks;
+            if (renames) {
+                blocks = Object.assign(Object.create(null), blocks);
+                Object.keys(renames).forEach(function(internal){
+                    var external = renames[internal];
+                    blocks[external] = blocks[internal];
+                    delete blocks[internal];
+                });
+            }
+            BLOCKS.push(blocks);
         },
 
         add_path: function(name, value) {
@@ -738,8 +903,13 @@ TWEEG_RUNTIME = function(){
             return src.join("/");
         },
 
-        index: function(obj, prop) {
-            return obj == null ? null : obj[prop];
+        index: function(obj) {
+            var val = obj;
+            for (var i = 1; i < arguments.length; ++i) {
+                if (val == null) return null;
+                val = val[arguments[i]];
+            }
+            return val;
         },
 
         add_global: function(name, value) {
@@ -752,8 +922,16 @@ TWEEG_RUNTIME = function(){
 
         global: function(name) {
             return globals[name];
-        }
+        },
+
+        macro: readMacroArgs,
+
+        named_arg: function(name, value) {
+            return new NamedArg(name, value);
+        },
     };
 
     return TR;
 };
+
+module.exports = TWEEG_RUNTIME;

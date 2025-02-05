@@ -1,0 +1,149 @@
+-----FILE: users
+{% for user in users %}
+  {% block user %}
+    Name: {{ user.name }}, ID: {{ user.id }}
+  {% endblock %}
+{% endfor %}
+-----INPUT: users
+{ users: [
+    { id: "foo", name: "The Foo" },
+    { id: "bar", name: "The Bar" },
+    { id: "baz", name: "The Baz" },
+] }
+-----OUTPUT: users
+Name: The Foo, ID: foo
+Name: The Bar, ID: bar
+Name: The Baz, ID: baz
+
+
+
+-----FILE: base.twig
+Start
+{% for post in posts %}
+    {% block post %}
+        <h1>{{ post.title }}</h1>
+        <p>{{ post.text }}</p>
+    {% endblock %}
+{% endfor %}
+End
+
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% block post %}
+    <article>
+        <header>{{ post.title }}</header>
+        <section>{{ post.text }}</section>
+    </article>
+{% endblock %}
+-----INPUT: child.twig
+{ posts: [
+    { title: "Post 1", text: "Post 1 text" },
+    { title: "Post 2", text: "Post 2 text" },
+] }
+-----OUTPUT: child.twig
+Start
+<article>
+<header>Post 1</header>
+<section>Post 1 text</section>
+</article>
+<article>
+<header>Post 2</header>
+<section>Post 2 text</section>
+</article>
+End
+
+-----FILE: child2.twig
+{% extends "base.twig" %}
+{% block post %}
+    <div title="{{ post.title }}" data-text="{{ post.text }}">
+        {{ parent() }}
+    </div>
+{% endblock %}
+-----INPUT: child2.twig
+{ posts: [
+    { title: "Post 1", text: "Post 1 text" },
+    { title: "Post 2", text: "Post 2 text" },
+] }
+-----OUTPUT: child2.twig
+Start
+<div title="Post 1" data-text="Post 1 text">
+<h1>Post 1</h1>
+<p>Post 1 text</p>
+</div>
+<div title="Post 2" data-text="Post 2 text">
+<h1>Post 2</h1>
+<p>Post 2 text</p>
+</div>
+End
+
+
+
+-----FILE: one.twig
+This is first base.
+{% block test %}FIRST IMPL{% endblock %}
+
+-----FILE: two.twig
+{% extends "one.twig" %}
+{% block test %}
+    SECOND IMPL
+    {{ parent() }}
+{% endblock %}
+
+-----FILE: three.twig
+{% extends "two.twig" %}
+{% block test %}
+    {{ parent() }}
+    THIRD IMPL
+{% endblock %}
+
+-----OUTPUT: three.twig
+This is first base.
+SECOND IMPL
+FIRST IMPL
+THIRD IMPL
+
+
+
+-----FILE: base.twig
+{% block test_scope %}
+    {{ foo }}
+{% endblock %}
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% set foo = "this is weird" %}
+-----OUTPUT: child.twig
+this is weird
+
+
+
+-----FILE: base.twig
+BEFORE
+<div class="left">{% block left %}{{ foo }}{% endblock %}</div>
+<div class="right">
+    {% block right %}
+        parent.
+    {% endblock %}
+</div>
+AFTER
+
+-----FILE: main.twig
+BEFORE EMBED
+{% embed "base.twig" %}
+    {% set foo = "weirdness" %}
+    {% block right %}
+        The right side
+        {{ parent() }}
+    {% endblock %}
+{% endembed %}
+AFTER EMBED
+
+-----OUTPUT: main.twig
+BEFORE EMBED
+BEFORE
+<div class="left">weirdness</div>
+<div class="right">
+The right side
+parent.
+</div>
+AFTER
+AFTER EMBED

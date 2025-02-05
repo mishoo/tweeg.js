@@ -1,0 +1,5 @@
+{% macro dude(index, first_name, last_name) %}
+    <li>{{ index }}. {{ first_name }} {{ last_name }}</li>
+{% endmacro %}
+
+{{ _self.dude(1, last_name = "Doe", first_name = "John") }}

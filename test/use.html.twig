@@ -1,0 +1,36 @@
+-----FILE: base.twig
+BASE
+{% block test %}
+    test from base
+{% endblock %}
+-----FILE: middle.twig
+{% block test %}
+    test from middle
+    {{ parent() }}
+{% endblock %}
+{% block boo %}
+    boo from middle
+{% endblock %}
+{% block another %}
+    another one from middle
+    {{ foo }}
+    {{ parent() }}
+{% endblock %}
+-----FILE: child.twig
+{% extends "base.twig" %}
+{% use "middle.twig" with another as myname %}
+{% block test %}
+    test from child
+    {{ parent() }}
+    {% set foo = "foo" %}
+    {{ block('myname') }}
+    {{ block('boo', 'middle.twig') }}
+{% endblock %}
+-----OUTPUT: child.twig
+BASE
+test from child
+test from middle
+test from base
+another one from middle
+foo
+boo from middle

@@ -897,7 +897,8 @@ function TWEEG(RUNTIME){
 
         function parse_funarg() {
             return input.ahead(2, function(tokens, consume){
-                if (is(tokens[0], NODE_SYMBOL) && is(tokens[1], NODE_OPERATOR, "=")) {
+                if (is(tokens[0], NODE_SYMBOL) && (is(tokens[1], NODE_OPERATOR, "=") ||
+                                                   is(tokens[1], NODE_PUNC, ":"))) {
                     return {
                         type: NODE_NAMED_ARG,
                         name: tokens[0],

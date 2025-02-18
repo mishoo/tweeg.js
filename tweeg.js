@@ -1149,8 +1149,14 @@ function TWEEG(RUNTIME){
             }
             if (looking_at(NODE_PUNC, ".")) {
                 next();
-                prop = skip(NODE_SYMBOL);
-                prop.type = NODE_STR;
+                if (looking_at(NODE_PUNC, "(")) {
+                    next();
+                    prop = parse_expression();
+                    skip(NODE_PUNC, ")");
+                } else {
+                    prop = skip(NODE_SYMBOL);
+                    prop.type = NODE_STR;
+                }
                 return {
                     type: NODE_INDEX,
                     expr: expr,

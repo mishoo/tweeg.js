@@ -152,3 +152,24 @@ before, 1, 2, 3, after
 foo
 foo after
 foo before
+
+
+
+-----FILE
+{%- set a = { foobar: "foobar", method: (a, b) => a + b } -%}
+{%- set bar = 'bar' -%}
+{{ a.foobar }}
+{{ a['foobar'] }}
+{{ a['foo' ~ bar] }}
+{{ a.('foo' ~ bar) }}
+{{ a.method(2, 3) }}
+{{ a['method'](3, 4) }}
+{{ a.('met' ~ 'hod')(4, 5) }}
+-----OUTPUT
+foobar
+foobar
+foobar
+foobar
+5
+7
+9

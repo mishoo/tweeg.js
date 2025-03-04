@@ -1301,6 +1301,14 @@ function TWEEG(RUNTIME){
             } else if (node.type == NODE_COND) {
                 add_dependency(node.then);
                 add_dependency(node.else);
+            } else if (node.type == NODE_INDEX) {
+                if (node.expr.type == NODE_ARRAY) {
+                    add_dependency(node.expr);
+                } else if (node.expr.type == NODE_HASH) {
+                    node.body.forEach(({ key, value }) => add_dependency(value));
+                } else {
+                    dependencies.push(node);
+                }
             } else {
                 dependencies.push(node);
             }

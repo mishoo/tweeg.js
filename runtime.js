@@ -177,6 +177,16 @@ function TWEEG_RUNTIME(){
         if (val instanceof RawString) {
             return !!val.value;
         }
+        if (val && typeof val == "object") {
+            let ctor = Object.getPrototypeOf(val).constructor;
+            if (ctor === Object || ctor == null) {
+                for (var i in val) {
+                    if (HOP.call(val, i))
+                        return true;
+                }
+                return false;
+            }
+        }
         return !!val;
     }
 

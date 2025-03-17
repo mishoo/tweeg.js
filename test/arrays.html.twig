@@ -1,0 +1,10 @@
+-----FILE: slices
+{% set settings = [ 1, 2 ] %} 
+{% set length = settings|length %}
+{% set half1 = length % 2 == 0 ? settings[:length / 2] : settings[:length / 2 + 1] %}
+{% set half2 = length % 2 == 0 ? settings[length / 2:] : settings[length / 2 + 1:] %}
+len1 = {{ half1|length }}
+len2 = {{ half2|length }}
+-----OUTPUT
+len1 = 1
+len2 = 1

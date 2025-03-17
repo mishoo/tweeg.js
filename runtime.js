@@ -124,9 +124,15 @@ function TWEEG_RUNTIME(){
             .replace(/>\s+</g, "><");
     }
 
-    function slice(thing, start, end) {
-        if (end != null && end >= 0) {
-            end += start;
+    function slice(thing, start, length) {
+        let end = length;
+        if (start == null) start = 0;
+        if (end != null) {
+            if (end < 0) end += thing.length;
+            else end += start;
+        }
+        if (typeof thing == "string") {
+            return [...thing].slice(start, end).join("");
         }
         return thing.slice(start, end);
     }
